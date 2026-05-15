@@ -12,5 +12,19 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
 
+  rustfs:
+    image: rustfs/rustfs:latest
+    container_name: cs-capstone-s3
+    restart: unless-stopped
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Console/UI (if available)
+    environment:
+      - RUSTFS_ACCESS_KEY=rustfsadmin
+      - RUSTFS_SECRET_KEY=rustfsadmin
+      - RUSTFS_CONSOLE_ENABLE=true
+    volumes:
+      - s3_data:/data
 volumes:
   postgres_data:
+  s3_data:

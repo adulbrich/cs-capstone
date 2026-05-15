@@ -8,7 +8,7 @@ This project is a TanStack Start application with React SSR, TanStack Query, Tan
 # Install dependencies
 npm install
 
-# Start local PostgreSQL database
+# Start local PostgreSQL database and S3 storage
 docker compose up -d
 
 # Start development server
@@ -59,7 +59,7 @@ Use shadcn/ui with the `npm dlx shadcn@latest add <component>` command. Existing
 
 ## Code Quality
 
-This project uses Biome for formatting and linting. Always run `npm check` before committing.
+This project uses Biome for formatting and linting. Always run `npm run check` after finishing work and fix any formatting or linting issues before committing.
 
 ## Configuration
 

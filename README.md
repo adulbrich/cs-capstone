@@ -98,6 +98,8 @@ npm run format
 npm run check
 ```
 
+Always run `npm run check` after finishing work and fix any formatting or linting issues before committing.
+
 ## Deploy to Railway
 
 This project ships with `nixpacks.toml` so Railway detects the build automatically:
