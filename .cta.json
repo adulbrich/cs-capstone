@@ -1,0 +1,29 @@
+{
+  "projectName": "cs-capstone",
+  "mode": "file-router",
+  "typescript": true,
+  "packageManager": "npm",
+  "includeExamples": false,
+  "tailwind": true,
+  "addOnOptions": {
+    "drizzle": {
+      "database": "postgresql"
+    }
+  },
+  "envVarValues": {},
+  "git": false,
+  "install": true,
+  "routerOnly": false,
+  "version": 1,
+  "framework": "react",
+  "chosenAddOns": [
+    "biome",
+    "railway",
+    "drizzle",
+    "form",
+    "shadcn",
+    "table",
+    "better-auth",
+    "tanstack-query"
+  ]
+}
