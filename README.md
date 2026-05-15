@@ -1,6 +1,51 @@
-Welcome to your new TanStack Start app! 
+# CS Capstone App
 
-# Getting Started
+## Features
+
+### Authentication
+
+- User can sign up, log in, and log out.
+- User types: regular user, and admin.
+  - Consider adding an instructor type that has some admin privileges but not all (e.g. can manage projects and programs, but not users or categories).
+- Log in with email/password, Google SSO, GitHub SSO, LinkedIn SSO, Discord, or Oregon State University ONID SSO.
+- Password reset functionality.
+- Email verification after sign up.
+- Users can update their profile information and change their password.
+
+### Project Management
+
+- Projects have (at least): random uuid, title, description, problem statement, objectives/deliverables, minimum and preferred qualifications, url, contact information, image, license or IP restrictions, project proposer, program, program manager (main instructor), notes (not publicly visible).
+- Programs are course ID + course name + instructors (usernames of admins).
+- Users can view published projects.
+- Users can filter projects by full text search accross all project fields, by category, and by program.
+- Users can submit new projects for review.
+- Users that created/proposed/submitted projects can see, edit, or delete them (draft project are deleted for good, other statuses are soft-deleted).
+- Admins can review and publish submitted projects.
+- Admins can archive published projects.
+- Admins can soft delete projects (mark as deleted without actually removing them from the database). The soft-deleted projects don't show up for users, but admins can see them in a separate view and restore them if needed.
+- Project have various phases/statuses: draft, submitted, approved (not published), changes requested, published, archived.
+- Users can change projects from draft to submitted, or from change requested to submitted, or from submitted back to draft.
+- Admins can change all statuses.
+- Admins can add comments when reviewing projects, and users can reply to those comments if the status goes back to change requested.
+- Admins can leave internal comments (for other admins, invisible to users).
+- Logs should be kept for project status changes, comments, and edits.
+- Users can browse published projects, but also see their own created/submitted projects in a separate view.
+- Users can edit their profile information (name, email, password, affiliation, linkedin, profile picture, etc.) and see their account details (user type).
+- Admins have access to an admin view to manage projects, programs, users, ctageories (can be 4 separate views or a single view with tabs).
+- Categories/tags can only be added by admins on projects, can be managed separately, and we could use Gen AI to find the best categories for a project based on its content.
+  - We could consider different type of categories (project type, technology stack, industry, field, etc.) and allow filtering by each of them.
+- (Stretch) Students can bid on preferred projects (top 5) at the beginning of the year, for a specific program, with motivation and qualifications. Bids are visible to admins and project proposers, but not to other students.
+- (Stretch) Admins can assign students to projects based on their bids and project preferences (automatically or manually).
+
+### Inventory Management
+
+- Users can browse inventory items.
+- Admins can add, edit, and delete inventory items.
+- Users can request inventory items (with a cart functionality).
+- Admins can approve or reject inventory requests.
+- Logs should be kept for inventory changes and requests.
+
+## Getting Started
 
 To run this application:
 
@@ -15,8 +60,6 @@ To stop the database:
 ```bash
 docker compose down
 ```
-
-# Building For Production
 
 To build this application for production:
 
@@ -49,13 +92,11 @@ If you prefer not to use Tailwind CSS:
 
 This project uses [Biome](https://biomejs.dev/) for linting and formatting. The following scripts are available:
 
-
 ```bash
 npm run lint
 npm run format
 npm run check
 ```
-
 
 ## Deploy to Railway
 
@@ -76,7 +117,6 @@ Add components using the latest version of [Shadcn](https://ui.shadcn.com/).
 ```bash
 pnpm dlx shadcn@latest add button
 ```
-
 
 ## Setting up Better Auth
 
@@ -110,8 +150,6 @@ Then run migrations:
 ```bash
 npx -y @better-auth/cli migrate
 ```
-
-
 
 ## Routing
 
