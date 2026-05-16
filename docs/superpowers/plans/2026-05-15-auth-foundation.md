@@ -1668,9 +1668,9 @@ git commit -m "biome/tsc cleanup after auth foundation"
 
 - Modify: `README.md`
 
-- [ ] **Step 1:** Under the existing "Setting up Better Auth" section in `README.md`, replace the contents with the block below. (The outer fence here uses tildes so the inner triple-backticks survive copy/paste.)
+- [ ] **Step 1:** Under the existing "Setting up Better Auth" section in `README.md`, replace the contents with the block below. (The outer fence uses four backticks so the inner triple-backticks survive copy/paste.)
 
-~~~markdown
+````markdown
 ## Setting up Better Auth
 
 This project uses Better Auth backed by Drizzle + Postgres. Identity lives in
@@ -1715,7 +1715,7 @@ npm run db:migrate
 ```
 
 Never hand-edit `src/db/auth-schema.ts`; it is overwritten by the CLI.
-~~~
+````
 
 - [ ] **Step 2: Commit**
 
