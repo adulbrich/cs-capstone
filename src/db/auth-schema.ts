@@ -25,6 +25,8 @@ export const user = pgTable("user", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires", { withTimezone: true }),
+  // additionalFields from src/lib/auth.ts user.additionalFields
+  // The CLI re-includes these on regen because they live in the auth config.
   affiliation: text("affiliation"),
   linkedin: text("linkedin"),
 });
