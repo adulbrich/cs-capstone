@@ -77,7 +77,7 @@ These are produced by `npx @better-auth/cli generate` and pasted into `src/db/sc
 
 **`user`**
 
-- `id` uuid PK
+- `id` text PK (Better Auth's default; we don't override it. See Risk #6.)
 - `email` text unique not null
 - `email_verified` boolean not null default false
 - `name` text
@@ -93,21 +93,21 @@ These are produced by `npx @better-auth/cli generate` and pasted into `src/db/sc
 
 **`session`**
 
-- `id` uuid PK
-- `user_id` uuid not null FK -> `user(id)` ON DELETE CASCADE
+- `id` text PK
+- `user_id` text not null FK -> `user(id)` ON DELETE CASCADE
 - `expires_at` timestamptz not null
 - `token` text unique not null
 - `ip_address` text
 - `user_agent` text
-- `impersonated_by` uuid FK -> `user(id)` (admin plugin)
+- `impersonated_by` text FK -> `user(id)` (admin plugin)
 - `created_at` timestamptz not null default now()
 - `updated_at` timestamptz not null default now()
 - Indexes: `(user_id)`, `(expires_at)`
 
 **`account`**
 
-- `id` uuid PK
-- `user_id` uuid not null FK -> `user(id)` ON DELETE CASCADE
+- `id` text PK
+- `user_id` text not null FK -> `user(id)` ON DELETE CASCADE
 - `account_id` text not null (provider account id; for credentials = user.id)
 - `provider_id` text not null (`'credential'`, `'github'`, ...)
 - `password` text (only set for `provider_id='credential'`)
@@ -121,7 +121,7 @@ These are produced by `npx @better-auth/cli generate` and pasted into `src/db/sc
 
 **`verification`**
 
-- `id` uuid PK
+- `id` text PK
 - `identifier` text not null (typically the email)
 - `value` text not null (the token)
 - `expires_at` timestamptz not null
@@ -352,6 +352,7 @@ Out of scope to fully design here. Spec 1 only commits to: env keys unchanged, `
 3. **Cookies behind proxies.** Railway and AWS both proxy traffic. `BETTER_AUTH_URL` must be the public origin, not the internal hostname, or OAuth redirects break. `trustHost: true` is required in non-local envs.
 4. **CLI codegen vs hand edits.** Anything inside the four Better Auth tables can be wiped by a future `cli generate`. The rule: never hand-edit those table definitions. All app columns on `user` are added via `additionalFields` on the auth config, which causes the CLI to include them on regeneration.
 5. **Identicon URL stability.** DiceBear URLs are deterministic given a seed. If we ever change the seed input (e.g., from user id to email), all existing avatars change. Document the seed choice (user id) and don't change it.
+6. **`user.id` is `text`, not `uuid`.** Better Auth's CLI generates `text` PKs by default; overriding requires `advanced.database.generateId` config and risks breaking plugin assumptions about ID format. We accept the default. Every FK that previously pointed at the old `users.id` (`uuid`) is therefore now `text`. Functionally equivalent for our queries; the only consequence is that Postgres validates the column as a string rather than a UUID type. If at some future point we need true UUID typing for ops or analytics reasons, we can switch by configuring Better Auth's id generator and writing a one-shot migration.
 
 ## 13. Future Considerations (out of scope)
 
