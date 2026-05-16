@@ -1,5 +1,8 @@
 import { fileURLToPath } from "node:url";
+import { config as loadDotenv } from "dotenv";
 import { defineConfig } from "vitest/config";
+
+loadDotenv({ path: [".env.local", ".env"] });
 
 export default defineConfig({
   resolve: {
@@ -11,6 +14,6 @@ export default defineConfig({
     include: ["src/**/*.integration.test.ts"],
     setupFiles: ["src/test/setup.integration.ts"],
     pool: "forks",
-    poolOptions: { forks: { singleFork: true } },
+    fileParallelism: false,
   },
 });
