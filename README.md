@@ -173,6 +173,20 @@ npm run test:integration
 
 Each test starts from a TRUNCATEd database, so they share a single fork and run serially.
 
+## Project domain (Spec 2)
+
+The `/projects` URL space is the canonical surface for the project domain:
+
+- `/projects`: public list of published projects.
+- `/projects/$id`: canonical project detail. Staff sections (notes, internal comments, edit log, transition actions) appear conditionally when the viewer is staff.
+- `/projects/new` and `/projects/$id/edit`: authed-only via the `_authed` layout.
+- `/my/projects`: the signed-in user's own projects with a status filter.
+- `/admin/projects`: staff list view with filters and an include-soft-deleted toggle.
+
+The workflow state machine lives in `src/lib/project-workflow.ts` as a pure module. The visibility rules live in `src/lib/project-visibility.ts`, also pure. Every project mutation is one server function in `src/server/projects.ts` or `src/server/comments.ts`, each enforcing its own gate and wrapping writes in a transaction. The companion `*As(viewer, ...)` helpers next to each `createServerFn` let integration tests exercise the business logic directly without going through the HTTP layer.
+
+Forms with more than 2 fields use [TanStack Form](https://tanstack.com/form) with Zod validators, sharing schemas with the server. Server-thrown `ZodError` is mapped back to field-level errors via `src/lib/apply-server-errors.ts`.
+
 ## Routing
 
 This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
