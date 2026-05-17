@@ -59,9 +59,9 @@ Spec 3 will add discovery (full-text search, filters, public browse refinements)
 | `src/routes/_authed/projects/new.tsx` | Create form. On success, navigates to `/projects/$id`. |
 | `src/routes/_authed/projects/$projectId/edit.tsx` | Edit form. Loader checks `canEditProject`; redirects on miss. |
 | `src/routes/_authed/my/projects.tsx` | My-projects list with status sub-filter. |
-| `src/routes/_authed/admin/projects.tsx` | Admin list with status filter, "include soft-deleted" toggle. |
-| `src/routes/_authed/admin/projects/$projectId.tsx` | Admin detail. Shows everything: `notes`, internal comments, edit log. Action buttons keyed off `canTransition`. |
+| `src/routes/_authed/admin/projects/index.tsx` | Admin list with status filter and "include soft-deleted" toggle. Detail links go to canonical `/projects/$id`. |
 | `src/components/project-form.tsx` | Shared TanStack Form component used by new + edit. Single Zod schema. Submit handler is a prop (different server function per page). |
+| `src/components/staff-project-panel.tsx` | Staff-only sections rendered conditionally on the canonical detail page: internal notes, internal comments, edit log, transition action buttons keyed off `canTransition`. Returns `null` for non-staff viewers. |
 | `src/components/project-card.tsx` | List item. |
 | `src/components/status-badge.tsx` | Color-coded status pill (one color per status). |
 | `src/components/status-timeline.tsx` | Renders `project_status_history` rows as a vertical timeline with actor + comment. |
@@ -220,10 +220,10 @@ Rules of thumb:
 - Replies have `parent_id` pointing at another comment on the same project. Replies are one level deep; the UI does not allow replying to a reply, and the server rejects such writes.
 - `is_internal = true` means the comment is staff-only.
 - Posting rules enforced server-side:
-  - To post on a project, the viewer must satisfy `canSeeProject`.
+  - To post on a project, the viewer must be authenticated and satisfy `canSeeProject`.
   - To post `is_internal: true`, the viewer must be staff.
   - To post a reply, the parent must exist, belong to the same project, and not itself be a reply.
-  - Owners may only post when status is `changes_requested`. Staff may post any time.
+  - No status-based gate on posting. Owners may comment on their own projects in any status (including draft, to leave themselves notes, and during active review). Staff may comment any time. The README's "users can reply when changes_requested" is preserved at the level of "what's typically useful" rather than as a hard gate; the workflow does not depend on comment timing.
   - Empty / whitespace-only content is rejected.
 
 ### 8.2 Visibility
@@ -317,16 +317,18 @@ Submit handler calls `applyServerErrors(form, err)` and falls back to a generic 
 | Path | Layout | Component | Notes |
 | --- | --- | --- | --- |
 | `/projects` | Public | `projects/index.tsx` | Paginated published list. |
-| `/projects/$projectId` | Public | `projects/$projectId.tsx` | Public detail. |
+| `/projects/$projectId` | Public | `projects/$projectId.tsx` | Canonical project detail. Staff sections (notes, internal comments, edit log, transition action buttons) render conditionally when the viewer is staff. One URL per project regardless of viewer role. |
 | `/projects/new` | `_authed` | `_authed/projects/new.tsx` | Create form. |
-| `/projects/$projectId/edit` | `_authed` | `_authed/projects/$projectId/edit.tsx` | Edit form. Loader rejects if not `canEditProject`. |
-| `/my/projects` | `_authed` | `_authed/my/projects.tsx` | Own projects list. |
-| `/admin/projects` | `_authed/admin` | `_authed/admin/projects/index.tsx` | All projects with status filter + soft-deleted toggle. |
-| `/admin/projects/$projectId` | `_authed/admin` | `_authed/admin/projects/$projectId.tsx` | Staff detail with full info + action buttons + edit log. |
+| `/projects/$projectId/edit` | `_authed` | `_authed/projects/$projectId/edit.tsx` | Edit form. Loader rejects if not `canEditProject`. Staff see additional fields (`notes`). |
+| `/my/projects` | `_authed` | `_authed/my/projects.tsx` | Own projects list with status sub-filter. |
+| `/admin/projects` | `_authed/admin` | `_authed/admin/projects/index.tsx` | Admin list view of all projects: status filter, include-soft-deleted toggle, links to canonical `/projects/$id`. |
 
-Note: the existing `_authed/admin/index.tsx` stub from Spec 1 stays as the admin landing page and gets a small links list pointing at the new `/admin/projects`.
+Notes on the routing model:
 
-The `/projects/new` path lives under `_authed/projects/new.tsx` so it inherits the session guard. Same for edit.
+- Single canonical URL per project (`/projects/$id`). Avoids two diverging templates and lets staff share project URLs with non-staff users; each viewer just sees the slice they are allowed to see.
+- `/admin/projects` exists only as a *list* URL because the admin list is a fundamentally different query (all statuses, soft-deleted, filters). Detail navigation from the admin list links back to `/projects/$id`.
+- The existing `_authed/admin/index.tsx` stub from Spec 1 stays as the admin landing page and gets a small links list pointing at `/admin/projects` (and at the future Spec 3 admin pages).
+- `/projects/new` and `/projects/$projectId/edit` live under the `_authed` layout so they inherit the session guard.
 
 ## 12. Testing
 
@@ -355,10 +357,10 @@ The `/projects/new` path lives under `_authed/projects/new.tsx` so it inherits t
 
 Run with at least two browser sessions (one staff, one non-staff user).
 
-1. **Create + edit (proposer).** Sign in as a non-staff user. `/projects/new`, fill all fields, submit. Land on `/projects/$id`, status `draft`. Edit one field, save. Verify edit log row appears on the admin view (in another browser as staff).
-2. **Submit + review.** Proposer submits. Staff browser sees it in `/admin/projects`. Staff opens detail, leaves a public review comment, requests changes. Proposer's bell icon shows an unread notification. Proposer reads it, sees status `changes_requested` and the comment. Proposer replies. Staff sees the reply.
-3. **Approve + publish.** Staff approves, then publishes. Proposer notification fires. Public unauthenticated visitor sees the project at `/projects` and `/projects/$id`.
-4. **Internal comment.** Staff adds an internal comment. Proposer cannot see it in their view. A second staff session can.
+1. **Create + edit (proposer).** Sign in as a non-staff user. `/projects/new`, fill all fields, submit. Land on `/projects/$id`, status `draft`. Edit one field, save. In a second browser signed in as staff, open the same `/projects/$id` URL and confirm the edit log row appears in the staff-only panel.
+2. **Submit + review.** Proposer submits. Staff browser sees the project in `/admin/projects`, clicks through to `/projects/$id`, leaves a public review comment, and clicks "Request changes". Proposer's bell icon shows an unread notification. Proposer reads it, sees status `changes_requested` and the comment. Proposer replies. Staff sees the reply.
+3. **Approve + publish.** Staff approves, then publishes. Proposer notification fires. Public unauthenticated visitor sees the project at `/projects` and `/projects/$id` (and does NOT see the staff panel).
+4. **Internal comment.** Staff adds an internal comment from the staff panel on `/projects/$id`. Proposer reloads the same URL and does NOT see it. A second staff session does.
 5. **Archive + restore.** Staff archives. Public list no longer shows it. Staff restores. Public list shows again.
 6. **Soft delete.** Staff soft-deletes a published project. Public list does not show it. Admin list with "include soft-deleted" shows it. Staff restores; public list shows it again.
 7. **Hard delete.** Proposer creates a draft, then hard-deletes it from their my-projects view. Row is gone. The admin view does not show it (including with soft-deleted toggle on).
