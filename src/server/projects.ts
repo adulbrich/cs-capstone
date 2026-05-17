@@ -1,0 +1,335 @@
+import { createServerFn } from "@tanstack/react-start";
+import { eq } from "drizzle-orm";
+import { z } from "zod";
+import { db } from "#/db";
+import { projectEditLog, projectStatusHistory, projects } from "#/db/schema";
+import { requireUser } from "#/lib/auth-guards.server";
+import { canEditProject, isStaff, type Viewer } from "#/lib/project-visibility";
+import {
+  type ActorRole,
+  assertTransitionAllowed,
+  type Status,
+} from "#/lib/project-workflow";
+import {
+  recordSoftDeleteNotification,
+  recordStatusChangeNotifications,
+} from "./_internal/notify";
+
+type AuthUser = { id: string; role?: string | null | undefined };
+
+const projectInputSchema = z.object({
+  title: z.string().min(1).max(200),
+  description: z.string().max(5000).nullable().optional(),
+  problemStatement: z.string().max(5000).nullable().optional(),
+  objectives: z.string().max(5000).nullable().optional(),
+  minQualifications: z.string().max(2000).nullable().optional(),
+  prefQualifications: z.string().max(2000).nullable().optional(),
+  url: z.string().url().max(500).nullable().optional().or(z.literal("")),
+  contactEmail: z
+    .string()
+    .email()
+    .max(200)
+    .nullable()
+    .optional()
+    .or(z.literal("")),
+  contactName: z.string().max(200).nullable().optional(),
+  imageUrl: z.string().url().max(500).nullable().optional().or(z.literal("")),
+  licenseRestrictions: z.string().max(1000).nullable().optional(),
+  programId: z.string().uuid().nullable().optional(),
+  notes: z.string().max(5000).nullable().optional(),
+});
+
+export type ProjectInput = z.infer<typeof projectInputSchema>;
+
+const updateProjectSchema = projectInputSchema.extend({
+  id: z.string().uuid(),
+});
+
+export type UpdateProjectInput = z.infer<typeof updateProjectSchema>;
+
+const transitionInputSchema = z.object({
+  id: z.string().uuid(),
+  comment: z.string().max(2000).optional(),
+});
+
+const idOnlySchema = z.object({ id: z.string().uuid() });
+
+const PROJECT_EDITABLE_FIELDS = [
+  "title",
+  "description",
+  "problemStatement",
+  "objectives",
+  "minQualifications",
+  "prefQualifications",
+  "url",
+  "contactEmail",
+  "contactName",
+  "imageUrl",
+  "licenseRestrictions",
+  "programId",
+  "notes",
+] as const;
+
+function viewerToVisibility(viewer: AuthUser): Viewer {
+  return { id: viewer.id, role: viewer.role ?? null };
+}
+
+async function loadProjectOr404(id: string) {
+  const [row] = await db.select().from(projects).where(eq(projects.id, id));
+  if (!row) throw new Error("Project not found");
+  return row;
+}
+
+export async function createProjectAs(
+  viewer: AuthUser,
+  data: ProjectInput,
+): Promise<{ id: string }> {
+  const allowedNotes = isStaff(viewerToVisibility(viewer))
+    ? (data.notes ?? null)
+    : null;
+  const [created] = await db
+    .insert(projects)
+    .values({
+      title: data.title,
+      description: data.description ?? null,
+      problemStatement: data.problemStatement ?? null,
+      objectives: data.objectives ?? null,
+      minQualifications: data.minQualifications ?? null,
+      prefQualifications: data.prefQualifications ?? null,
+      url: (data.url || null) as string | null,
+      contactEmail: (data.contactEmail || null) as string | null,
+      contactName: data.contactName ?? null,
+      imageUrl: (data.imageUrl || null) as string | null,
+      licenseRestrictions: data.licenseRestrictions ?? null,
+      programId: data.programId ?? null,
+      notes: allowedNotes,
+      proposerId: viewer.id,
+      status: "draft",
+    })
+    .returning();
+  return { id: created.id };
+}
+
+export const createProject = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => projectInputSchema.parse(data))
+  .handler(async ({ data }) => {
+    const viewer = await requireUser();
+    return createProjectAs(viewer, data);
+  });
+
+export async function updateProjectAs(
+  viewer: AuthUser,
+  data: UpdateProjectInput,
+): Promise<{ id: string; updated: boolean }> {
+  const visibility = viewerToVisibility(viewer);
+  const existing = await loadProjectOr404(data.id);
+  if (!canEditProject(existing, visibility)) {
+    throw new Error("Forbidden");
+  }
+  const staff = isStaff(visibility);
+
+  const newValues: Record<string, unknown> = {
+    title: data.title,
+    description: data.description ?? null,
+    problemStatement: data.problemStatement ?? null,
+    objectives: data.objectives ?? null,
+    minQualifications: data.minQualifications ?? null,
+    prefQualifications: data.prefQualifications ?? null,
+    url: data.url || null,
+    contactEmail: data.contactEmail || null,
+    contactName: data.contactName ?? null,
+    imageUrl: data.imageUrl || null,
+    licenseRestrictions: data.licenseRestrictions ?? null,
+    programId: data.programId ?? null,
+  };
+  if (staff) newValues.notes = data.notes ?? null;
+
+  const oldDiff: Record<string, unknown> = {};
+  const newDiff: Record<string, unknown> = {};
+  const changedFields: string[] = [];
+  for (const field of PROJECT_EDITABLE_FIELDS) {
+    if (!staff && field === "notes") continue;
+    const oldVal = (existing as Record<string, unknown>)[field] ?? null;
+    const newVal = newValues[field] ?? null;
+    if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
+      oldDiff[field] = oldVal;
+      newDiff[field] = newVal;
+      changedFields.push(field);
+    }
+  }
+
+  if (changedFields.length === 0) {
+    return { id: existing.id, updated: false };
+  }
+
+  await db.transaction(async (tx) => {
+    await tx
+      .update(projects)
+      .set({ ...newValues, updatedAt: new Date() })
+      .where(eq(projects.id, existing.id));
+    await tx.insert(projectEditLog).values({
+      projectId: existing.id,
+      editorId: viewer.id,
+      changedFields,
+      oldValues: oldDiff,
+      newValues: newDiff,
+    });
+  });
+
+  return { id: existing.id, updated: true };
+}
+
+export const updateProject = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => updateProjectSchema.parse(data))
+  .handler(async ({ data }) => {
+    const viewer = await requireUser();
+    return updateProjectAs(viewer, data);
+  });
+
+export async function performTransitionAs(
+  viewer: AuthUser,
+  id: string,
+  target: Status,
+  comment?: string,
+): Promise<{ id: string; status: Status }> {
+  const visibility = viewerToVisibility(viewer);
+  const project = await loadProjectOr404(id);
+  if (!isStaff(visibility) && project.proposerId !== viewer.id) {
+    throw new Error("Forbidden");
+  }
+  const role: ActorRole = isStaff(visibility) ? "staff" : "owner";
+  assertTransitionAllowed(project.status as Status, target, role);
+
+  await db.transaction(async (tx) => {
+    const updates: Record<string, unknown> = {
+      status: target,
+      updatedAt: new Date(),
+    };
+    if (target === "published" && !project.publishedAt) {
+      updates.publishedAt = new Date();
+    }
+    if (target === "archived") {
+      updates.archivedAt = new Date();
+    }
+    await tx.update(projects).set(updates).where(eq(projects.id, id));
+
+    await tx.insert(projectStatusHistory).values({
+      projectId: id,
+      oldStatus: project.status,
+      newStatus: target,
+      changedBy: viewer.id,
+      comment: comment ?? null,
+    });
+
+    await recordStatusChangeNotifications(
+      tx,
+      { id: project.id, title: project.title, proposerId: project.proposerId },
+      target,
+      viewer.id,
+    );
+  });
+
+  return { id, status: target };
+}
+
+function makeTransition(target: Status) {
+  return createServerFn({ method: "POST" })
+    .inputValidator((data: unknown) => transitionInputSchema.parse(data))
+    .handler(async ({ data }) => {
+      const viewer = await requireUser();
+      return performTransitionAs(viewer, data.id, target, data.comment);
+    });
+}
+
+export const submitProject = makeTransition("submitted");
+export const returnToDraft = makeTransition("draft");
+export const requestChanges = makeTransition("changes_requested");
+export const approveProject = makeTransition("approved");
+export const publishProject = makeTransition("published");
+export const archiveProject = makeTransition("archived");
+export const restoreArchived = makeTransition("published");
+
+export async function softDeleteProjectAs(
+  viewer: AuthUser,
+  id: string,
+): Promise<{ id: string }> {
+  const visibility = viewerToVisibility(viewer);
+  if (!isStaff(visibility)) throw new Error("Forbidden");
+  const project = await loadProjectOr404(id);
+  if (project.status === "draft") {
+    throw new Error("Cannot soft-delete a draft; hard-delete instead.");
+  }
+  if (project.deletedAt) throw new Error("Already soft-deleted.");
+  await db.transaction(async (tx) => {
+    await tx
+      .update(projects)
+      .set({ deletedAt: new Date(), updatedAt: new Date() })
+      .where(eq(projects.id, id));
+    await recordSoftDeleteNotification(
+      tx,
+      { id: project.id, title: project.title, proposerId: project.proposerId },
+      "soft-deleted",
+      viewer.id,
+    );
+  });
+  return { id };
+}
+
+export const softDeleteProject = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => idOnlySchema.parse(data))
+  .handler(async ({ data }) => {
+    const viewer = await requireUser();
+    return softDeleteProjectAs(viewer, data.id);
+  });
+
+export async function restoreProjectAs(
+  viewer: AuthUser,
+  id: string,
+): Promise<{ id: string }> {
+  const visibility = viewerToVisibility(viewer);
+  if (!isStaff(visibility)) throw new Error("Forbidden");
+  const project = await loadProjectOr404(id);
+  if (!project.deletedAt) throw new Error("Not soft-deleted.");
+  await db.transaction(async (tx) => {
+    await tx
+      .update(projects)
+      .set({ deletedAt: null, updatedAt: new Date() })
+      .where(eq(projects.id, id));
+    await recordSoftDeleteNotification(
+      tx,
+      { id: project.id, title: project.title, proposerId: project.proposerId },
+      "restored",
+      viewer.id,
+    );
+  });
+  return { id };
+}
+
+export const restoreProject = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => idOnlySchema.parse(data))
+  .handler(async ({ data }) => {
+    const viewer = await requireUser();
+    return restoreProjectAs(viewer, data.id);
+  });
+
+export async function hardDeleteProjectAs(
+  viewer: AuthUser,
+  id: string,
+): Promise<{ id: string }> {
+  const visibility = viewerToVisibility(viewer);
+  const project = await loadProjectOr404(id);
+  if (project.status !== "draft") {
+    throw new Error("Hard delete only allowed on drafts.");
+  }
+  const isOwner = project.proposerId === viewer.id;
+  if (!isOwner && !isStaff(visibility)) throw new Error("Forbidden");
+  await db.delete(projects).where(eq(projects.id, id));
+  return { id };
+}
+
+export const hardDeleteProject = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => idOnlySchema.parse(data))
+  .handler(async ({ data }) => {
+    const viewer = await requireUser();
+    return hardDeleteProjectAs(viewer, data.id);
+  });
