@@ -12,9 +12,7 @@ type ProjectSummary = {
 export function ProjectCard({ project }: { project: ProjectSummary }) {
   return (
     <Link
-      // @ts-expect-error route added in a later phase
       to="/projects/$projectId"
-      // @ts-expect-error route added in a later phase
       params={{ projectId: project.id }}
       className="block border border-neutral-200 p-4 hover:bg-neutral-50 dark:border-neutral-800 dark:hover:bg-neutral-900"
     >

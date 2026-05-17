@@ -43,7 +43,9 @@ function ProjectsList() {
         <Link
           to="/projects"
           search={{ page: Math.min(totalPages, page + 1) }}
-          className={page >= totalPages ? "text-neutral-300" : "hover:underline"}
+          className={
+            page >= totalPages ? "text-neutral-300" : "hover:underline"
+          }
         >
           Next
         </Link>
