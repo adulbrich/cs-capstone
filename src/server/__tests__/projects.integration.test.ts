@@ -14,7 +14,7 @@ import {
   performTransitionAs,
   softDeleteProjectAs,
   updateProjectAs,
-} from "#/server/projects.server";
+} from "#/server/_internal/projects";
 
 async function makeUser(email: string, role: "user" | "admin") {
   await auth.api.signUpEmail({

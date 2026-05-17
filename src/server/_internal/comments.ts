@@ -2,8 +2,8 @@ import { and, eq } from "drizzle-orm";
 import { db } from "#/db";
 import { projectComments, projects } from "#/db/schema";
 import { canSeeProject, isStaff } from "#/lib/project-visibility";
-import { recordCommentNotifications } from "./_internal/notify";
-import type { AddCommentInput } from "./comments";
+import type { AddCommentInput } from "../comments";
+import { recordCommentNotifications } from "./notify";
 
 export type AuthUser = { id: string; role?: string | null | undefined };
 

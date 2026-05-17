@@ -14,7 +14,7 @@ export const addComment = createServerFn({ method: "POST" })
   .inputValidator((data: unknown) => addCommentSchema.parse(data))
   .handler(async ({ data }) => {
     const { requireUser } = await import("#/lib/auth-guards.server");
-    const { addCommentAs } = await import("./comments.server");
+    const { addCommentAs } = await import("./_internal/comments");
     const viewer = await requireUser();
     return addCommentAs(viewer, data);
   });

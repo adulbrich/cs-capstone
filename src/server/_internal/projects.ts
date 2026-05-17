@@ -7,11 +7,11 @@ import {
   assertTransitionAllowed,
   type Status,
 } from "#/lib/project-workflow";
+import type { ProjectInput, UpdateProjectInput } from "../projects";
 import {
   recordSoftDeleteNotification,
   recordStatusChangeNotifications,
-} from "./_internal/notify";
-import type { ProjectInput, UpdateProjectInput } from "./projects";
+} from "./notify";
 
 export type AuthUser = { id: string; role?: string | null | undefined };
 
