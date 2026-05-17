@@ -3,8 +3,8 @@ import { describe, expect, it } from "vitest";
 import { db } from "#/db";
 import { notifications, user } from "#/db/schema";
 import { auth } from "#/lib/auth";
-import { addCommentAs } from "#/server/comments";
-import { createProjectAs, performTransitionAs } from "#/server/projects";
+import { addCommentAs } from "#/server/comments.server";
+import { createProjectAs, performTransitionAs } from "#/server/projects.server";
 
 async function makeUser(email: string, role: "user" | "admin") {
   await auth.api.signUpEmail({
