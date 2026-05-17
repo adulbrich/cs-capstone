@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthedRouteImport } from './routes/_authed'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as ProjectsIndexRouteImport } from './routes/projects/index'
 import { Route as AuthedProfileRouteImport } from './routes/_authed/profile'
 import { Route as AuthedAdminRouteImport } from './routes/_authed/admin'
 import { Route as authVerifyEmailRouteImport } from './routes/(auth)/verify-email'
@@ -28,6 +29,11 @@ const AuthedRoute = AuthedRouteImport.update({
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/projects/',
+  path: '/projects/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthedProfileRoute = AuthedProfileRouteImport.update({
@@ -85,6 +91,7 @@ export interface FileRoutesByFullPath {
   '/verify-email': typeof authVerifyEmailRoute
   '/admin': typeof AuthedAdminRouteWithChildren
   '/profile': typeof AuthedProfileRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/': typeof AuthedAdminIndexRoute
 }
@@ -96,6 +103,7 @@ export interface FileRoutesByTo {
   '/sign-up': typeof authSignUpRoute
   '/verify-email': typeof authVerifyEmailRoute
   '/profile': typeof AuthedProfileRoute
+  '/projects': typeof ProjectsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof AuthedAdminIndexRoute
 }
@@ -110,6 +118,7 @@ export interface FileRoutesById {
   '/(auth)/verify-email': typeof authVerifyEmailRoute
   '/_authed/admin': typeof AuthedAdminRouteWithChildren
   '/_authed/profile': typeof AuthedProfileRoute
+  '/projects/': typeof ProjectsIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/admin/': typeof AuthedAdminIndexRoute
 }
@@ -124,6 +133,7 @@ export interface FileRouteTypes {
     | '/verify-email'
     | '/admin'
     | '/profile'
+    | '/projects/'
     | '/api/auth/$'
     | '/admin/'
   fileRoutesByTo: FileRoutesByTo
@@ -135,6 +145,7 @@ export interface FileRouteTypes {
     | '/sign-up'
     | '/verify-email'
     | '/profile'
+    | '/projects'
     | '/api/auth/$'
     | '/admin'
   id:
@@ -148,6 +159,7 @@ export interface FileRouteTypes {
     | '/(auth)/verify-email'
     | '/_authed/admin'
     | '/_authed/profile'
+    | '/projects/'
     | '/api/auth/$'
     | '/_authed/admin/'
   fileRoutesById: FileRoutesById
@@ -160,6 +172,7 @@ export interface RootRouteChildren {
   authSignInRoute: typeof authSignInRoute
   authSignUpRoute: typeof authSignUpRoute
   authVerifyEmailRoute: typeof authVerifyEmailRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
 }
 
@@ -177,6 +190,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/projects/': {
+      id: '/projects/'
+      path: '/projects'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authed/profile': {
@@ -278,6 +298,7 @@ const rootRouteChildren: RootRouteChildren = {
   authSignInRoute: authSignInRoute,
   authSignUpRoute: authSignUpRoute,
   authVerifyEmailRoute: authVerifyEmailRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
 }
 export const routeTree = rootRouteImport
