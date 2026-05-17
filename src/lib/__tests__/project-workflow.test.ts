@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   type ActorRole,
-  type Status,
   assertTransitionAllowed,
   canTransition,
+  type Status,
 } from "../project-workflow";
 
 const allowedCases: Array<[Status, Status, ActorRole]> = [
@@ -37,19 +37,13 @@ const forbiddenCases: Array<[Status, Status, ActorRole]> = [
 ];
 
 describe("canTransition", () => {
-  it.each(allowedCases)(
-    "%s -> %s is allowed for %s",
-    (from, to, role) => {
-      expect(canTransition(from, to, role)).toBe(true);
-    },
-  );
+  it.each(allowedCases)("%s -> %s is allowed for %s", (from, to, role) => {
+    expect(canTransition(from, to, role)).toBe(true);
+  });
 
-  it.each(forbiddenCases)(
-    "%s -> %s is forbidden for %s",
-    (from, to, role) => {
-      expect(canTransition(from, to, role)).toBe(false);
-    },
-  );
+  it.each(forbiddenCases)("%s -> %s is forbidden for %s", (from, to, role) => {
+    expect(canTransition(from, to, role)).toBe(false);
+  });
 
   it("returns false for self-transition", () => {
     expect(canTransition("draft", "draft", "owner")).toBe(false);
@@ -59,7 +53,9 @@ describe("canTransition", () => {
 
 describe("assertTransitionAllowed", () => {
   it("does not throw on an allowed transition", () => {
-    expect(() => assertTransitionAllowed("draft", "submitted", "owner")).not.toThrow();
+    expect(() =>
+      assertTransitionAllowed("draft", "submitted", "owner"),
+    ).not.toThrow();
   });
 
   it("throws on a forbidden transition with a message naming from, to, role", () => {

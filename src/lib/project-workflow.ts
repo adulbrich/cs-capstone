@@ -46,8 +46,6 @@ export function assertTransitionAllowed(
   role: ActorRole,
 ): void {
   if (!canTransition(from, to, role)) {
-    throw new Error(
-      `Transition ${from} -> ${to} not allowed for ${role}`,
-    );
+    throw new Error(`Transition ${from} -> ${to} not allowed for ${role}`);
   }
 }
