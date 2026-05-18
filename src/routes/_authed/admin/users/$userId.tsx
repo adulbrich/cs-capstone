@@ -1,0 +1,125 @@
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useRouter,
+} from "@tanstack/react-router";
+import { BanForm } from "#/components/ban-form";
+import { RoleSelect } from "#/components/role-select";
+import { getSession } from "#/lib/auth-guards";
+import { getUser } from "#/server/users";
+
+type Role = "user" | "instructor" | "admin";
+
+export const Route = createFileRoute("/_authed/admin/users/$userId")({
+  beforeLoad: async () => {
+    const session = await getSession();
+    if (!session?.user) throw redirect({ to: "/sign-in" });
+    if (session.user.role !== "admin") throw redirect({ to: "/admin" });
+    return { actorId: session.user.id };
+  },
+  loader: async ({ params }) => {
+    return await getUser({ data: { id: params.userId } });
+  },
+  component: UserDetail,
+});
+
+function UserDetail() {
+  const router = useRouter();
+  const { user, projectCount, recentProjects, bookmarkCount } =
+    Route.useLoaderData();
+  const { actorId } = Route.useRouteContext();
+  const isSelf = actorId === user.id;
+
+  function onChanged() {
+    void router.invalidate();
+  }
+
+  return (
+    <div className="mx-auto max-w-2xl p-8">
+      <h1 className="text-2xl font-semibold">{user.name ?? user.email}</h1>
+      <p className="mt-1 text-sm text-neutral-500">{user.email}</p>
+      {isSelf && (
+        <p className="mt-1 text-xs text-neutral-500">
+          This is you. Role and ban controls are disabled.
+        </p>
+      )}
+
+      <section className="mt-6 grid grid-cols-3 gap-3 text-sm">
+        <div className="border border-neutral-200 p-3 dark:border-neutral-800">
+          <p className="text-xs text-neutral-500">Role</p>
+          <p className="mt-1 font-medium">{user.role}</p>
+        </div>
+        <div className="border border-neutral-200 p-3 dark:border-neutral-800">
+          <p className="text-xs text-neutral-500">Projects</p>
+          <p className="mt-1 font-medium">{projectCount}</p>
+        </div>
+        <div className="border border-neutral-200 p-3 dark:border-neutral-800">
+          <p className="text-xs text-neutral-500">Bookmarks</p>
+          <p className="mt-1 font-medium">{bookmarkCount}</p>
+        </div>
+      </section>
+
+      {user.affiliation && (
+        <p className="mt-4 text-sm">
+          <span className="text-neutral-500">Affiliation: </span>
+          {user.affiliation}
+        </p>
+      )}
+      {user.linkedin && (
+        <p className="text-sm">
+          <span className="text-neutral-500">LinkedIn: </span>
+          <a href={user.linkedin} className="text-blue-700 hover:underline">
+            {user.linkedin}
+          </a>
+        </p>
+      )}
+      <p className="text-sm">
+        <span className="text-neutral-500">Joined: </span>
+        {new Date(user.createdAt).toLocaleDateString()}
+      </p>
+
+      {!isSelf && (
+        <RoleSelect
+          userId={user.id}
+          initialRole={user.role as Role}
+          onChanged={onChanged}
+        />
+      )}
+
+      {!isSelf && (
+        <BanForm
+          userId={user.id}
+          banned={user.banned ?? false}
+          banReason={user.banReason ?? null}
+          banExpires={user.banExpires ?? null}
+          onChanged={onChanged}
+        />
+      )}
+
+      <section className="mt-8">
+        <h2 className="font-medium text-sm">Recent projects</h2>
+        {recentProjects.length === 0 ? (
+          <p className="mt-2 text-sm text-neutral-500">None.</p>
+        ) : (
+          <ul className="mt-2 space-y-1">
+            {recentProjects.map((p) => (
+              <li key={p.id}>
+                <Link
+                  to="/projects/$projectId"
+                  params={{ projectId: p.id }}
+                  className="text-sm text-blue-700 hover:underline"
+                >
+                  {p.title}
+                </Link>{" "}
+                <span className="text-xs text-neutral-500">
+                  ({p.status as string})
+                </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+    </div>
+  );
+}
