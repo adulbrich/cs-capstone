@@ -167,7 +167,7 @@ effect:
 | `/admin/users` | `_authed/admin` | `_authed/admin/users/index.tsx` | List with URL-driven search/filter/page. |
 | `/admin/users/$userId` | `_authed/admin` | `_authed/admin/users/$userId.tsx` | Detail + role + ban controls. Notfound when id is missing. |
 
-Both inherit the existing admin `beforeLoad` guard from `_authed/admin.tsx` (admin OR instructor), AND each server fn re-checks `requireRole(["admin"])` to enforce admin-only for mutations.
+Both routes add their OWN `beforeLoad` that requires `role === "admin"` (the parent `_authed/admin.tsx` only requires admin OR instructor). Instructors visiting `/admin/users` are redirected to `/admin`. Each server fn additionally re-checks `requireRole(["admin"])` so mutations are admin-only at the data boundary too.
 
 ## 8. Testing
 
@@ -200,14 +200,11 @@ Run signed in as `admin@example.com`.
 5. **Banned state in UI.** Back in admin: refresh the detail page. The "Banned" banner appears with the reason. The form now shows an Unban button instead.
 6. **Unban.** Click Unban. The other browser can sign in again.
 7. **Self-action refusal.** Open YOUR OWN detail page (`/admin/users/<your-id>`). The RoleSelect and BanForm are hidden / disabled. Attempting to call the server function directly (devtools) throws.
-8. **Non-admin gate.** Sign out, sign in as `instructor@example.com`. Try to visit `/admin/users`. The admin landing-page Link is visible (instructor IS staff), but the `setUserRole` etc. server functions reject because they require `admin` role. (You may also want to hide the page from instructor entirely; see Open Questions.)
+8. **Non-admin gate.** Sign out, sign in as `instructor@example.com`. Try to visit `/admin/users`. The route's `beforeLoad` redirects to `/admin` (no user list visible). Direct server-fn calls (via devtools) also reject with `Forbidden` because `requireRole(["admin"])` denies instructor.
 
 ## 11. Open questions
 
-1. **Should `instructor` see `/admin/users` at all?** Currently `_authed/admin.tsx` lets both admin and instructor through. The mutations on the page are admin-only via the server gate, but instructors would see the list. Two options:
-   - (a) Keep current behavior: instructor sees the list but cannot mutate. Less restrictive but exposes the user list to instructors.
-   - (b) Add a per-route admin-only gate on `/admin/users` and `/admin/users/$id`. Instructors trying to navigate get redirected to `/`.
-   - Recommendation: (b). The user list is admin-only data per the README ("Admins have access to an admin view to manage projects, programs, users, categories"). Instructor having read access is a quiet drift.
+None. User confirmed: instructors are locked out of `/admin/users` entirely via a per-route admin-only `beforeLoad` that redirects to `/admin`. Server functions remain `requireRole(["admin"])` for defense in depth.
 
 ## 12. Approval
 
