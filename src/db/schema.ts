@@ -1,5 +1,7 @@
+import { sql } from "drizzle-orm";
 import {
   boolean,
+  customType,
   index,
   integer,
   jsonb,
@@ -13,6 +15,15 @@ import {
 import { user } from "./auth-schema";
 
 export * from "./auth-schema";
+
+/**
+ * Read-only tsvector column. Populated by Postgres via GENERATED ALWAYS AS
+ * (see migration 0002). Never write to it from TS. To change the weight
+ * expression, drop the column and re-add it in a new migration.
+ */
+const tsvector = customType<{ data: string; driverData: string }>({
+  dataType: () => "tsvector",
+});
 
 // Enums
 export const projectStatusEnum = pgEnum("project_status", [
@@ -85,7 +96,9 @@ export const projects = pgTable(
     proposerId: text("proposer_id")
       .references(() => user.id, { onDelete: "restrict" })
       .notNull(),
-    programId: uuid("program_id").references(() => programs.id),
+    programId: uuid("program_id").references(() => programs.id, {
+      onDelete: "set null",
+    }),
     programManagerId: text("program_manager_id").references(() => user.id, {
       onDelete: "restrict",
     }),
@@ -95,6 +108,11 @@ export const projects = pgTable(
     archivedAt: timestamp("archived_at", { withTimezone: true }),
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
 
+    searchVector: tsvector("search_vector")
+      .notNull()
+      .generatedAlwaysAs(
+        sql`setweight(to_tsvector('english', coalesce(title, '')), 'A') || setweight(to_tsvector('english', coalesce(description, '')), 'B') || setweight(to_tsvector('english', coalesce(problem_statement, '')), 'B') || setweight(to_tsvector('english', coalesce(objectives, '')), 'C') || setweight(to_tsvector('english', coalesce(min_qualifications, '')), 'C') || setweight(to_tsvector('english', coalesce(pref_qualifications, '')), 'C')`,
+      ),
     createdAt: timestamp("created_at", { withTimezone: true })
       .notNull()
       .defaultNow(),

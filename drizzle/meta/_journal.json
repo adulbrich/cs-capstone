@@ -15,6 +15,13 @@
       "when": 1779026958403,
       "tag": "0001_familiar_lightspeed",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1779082641017,
+      "tag": "0002_huge_tempest",
+      "breakpoints": true
     }
   ]
 }
