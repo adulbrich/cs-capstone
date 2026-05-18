@@ -200,6 +200,12 @@ If you change Better Auth plugins or `additionalFields` and re-run `npx @better-
 
 `auth.api.signUpEmail({ body: { email, password, name } })` returns `{ user, token }` but the type allows `user` to be undefined. Check and throw if missing (see `scripts/seed-admin.ts`).
 
+### Ban enforcement reads `user.banned`; sessions linger until next server call
+
+Better Auth's session-validation middleware checks `user.banned` on every request. Setting the row alone is enough to prevent future sign-ins, but an already-signed-in user keeps their cookie until the next server-touch. Our `banUserAs` impl wraps both writes (`UPDATE user` + `DELETE FROM session WHERE user_id = ?`) in one transaction so the next request fails session lookup and forces sign-out. Skipping the session-delete would leave a banned user nominally signed in until their cookie expired naturally.
+
+`ban_expires` is informational at write time; Better Auth's runtime check compares it to `now()` and treats a past timestamp as no-longer-banned. We do not run a cron to clear the row; the data simply ages out of relevance.
+
 ---
 
 ## Drizzle ORM + Postgres

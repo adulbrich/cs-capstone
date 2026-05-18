@@ -204,6 +204,14 @@ User-facing:
 
 The full-text search uses a Postgres generated `tsvector` column on `projects` with a GIN index. To change field weights, drop and re-add the column in a new migration (see `docs/QUIRKS.md`).
 
+## User admin (Spec 4)
+
+The `/admin/users` URL is admin-only (instructors are redirected to `/admin`). It lists every user with text search (email + name), role filter, and an include-banned toggle. The detail page at `/admin/users/$id` shows a profile block, project + bookmark counts, the user's five most recent projects, a role select, and a ban form.
+
+Admins cannot change their own role or ban themselves; the server refuses self-actions. Ban atomically updates the user row and revokes that user's sessions in the same transaction, so the banned user is signed out on their next request.
+
+Production note: keep at least two `admin` users. The self-action guard prevents a sole admin from accidentally demoting themselves into a one-way trap. Use `npm run db:seed:admin` or a direct `db:studio` edit to bootstrap the second admin.
+
 ## Routing
 
 This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
