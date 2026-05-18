@@ -1,17 +1,23 @@
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
+import { BookmarkButton } from "#/components/bookmark-button";
+import { CategoryChip } from "#/components/category-chip";
 import { CommentThread } from "#/components/comment-thread";
 import { OwnerProjectActions } from "#/components/owner-project-actions";
 import { StaffProjectPanel } from "#/components/staff-project-panel";
 import { StatusBadge } from "#/components/status-badge";
 import { StatusTimeline } from "#/components/status-timeline";
+import { listProjectCategories } from "#/server/categories";
 import { getProject, listProjectComments } from "#/server/projects-queries";
 
 export const Route = createFileRoute("/projects/$projectId")({
   loader: async ({ params }) => {
     const data = await getProject({ data: { id: params.projectId } });
     if (!data.project) throw notFound();
-    return data;
+    const { rows: projectCategories } = await listProjectCategories({
+      data: { projectId: params.projectId },
+    });
+    return { ...data, projectCategories };
   },
   component: ProjectDetail,
 });
@@ -20,8 +26,14 @@ type Comment = Parameters<typeof CommentThread>[0]["comments"][number];
 
 function ProjectDetail() {
   const router = useRouter();
-  const { project, history, canEdit, viewerIsStaff, viewerIsOwner } =
-    Route.useLoaderData();
+  const {
+    project,
+    history,
+    canEdit,
+    viewerIsStaff,
+    viewerIsOwner,
+    projectCategories,
+  } = Route.useLoaderData();
   const [comments, setComments] = useState<Comment[]>([]);
   const projectId = project?.id as string | undefined;
 
@@ -49,6 +61,9 @@ function ProjectDetail() {
         <h1 className="text-2xl font-semibold">{project.title as string}</h1>
         <StatusBadge status={project.status as string} />
       </div>
+      <div className="mt-2 flex items-center gap-2">
+        <BookmarkButton projectId={project.id as string} />
+      </div>
       {canEdit && (
         <a
           href={`/projects/${project.id}/edit`}
@@ -68,6 +83,14 @@ function ProjectDetail() {
             void router.invalidate();
           }}
         />
+      )}
+
+      {projectCategories.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-2">
+          {projectCategories.map((c) => (
+            <CategoryChip key={c.id} category={c} />
+          ))}
+        </div>
       )}
 
       {project.imageUrl && (
