@@ -187,6 +187,23 @@ The workflow state machine lives in `src/lib/project-workflow.ts` as a pure modu
 
 Forms with more than 2 fields use [TanStack Form](https://tanstack.com/form) with Zod validators, sharing schemas with the server. Server-thrown `ZodError` is mapped back to field-level errors via `src/lib/apply-server-errors.ts`.
 
+## Discovery + taxonomy (Spec 3)
+
+The `/projects` URL space supports full-text search (over title, description, problem statement, objectives, and qualifications), plus filters for program and category. All filter state lives in URL search params so links are shareable.
+
+Admin pages:
+
+- `/admin/categories`: create / edit / delete categories. Each category has a `type` (free text; admin form suggests existing types as autocomplete). Categories assigned to projects only by staff.
+- `/admin/programs`: create / edit / delete programs, manage per-program instructors (drawn from users with role `admin` or `instructor`).
+
+User-facing:
+
+- Bookmark button on the project detail page (authed only).
+- `/my/bookmarks`: the signed-in user's bookmarked projects.
+- Project form: the Program field is a real dropdown for everyone; staff additionally see a category multi-select.
+
+The full-text search uses a Postgres generated `tsvector` column on `projects` with a GIN index. To change field weights, drop and re-add the column in a new migration (see `docs/QUIRKS.md`).
+
 ## Routing
 
 This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
