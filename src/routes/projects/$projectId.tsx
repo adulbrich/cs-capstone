@@ -1,6 +1,7 @@
 import { createFileRoute, notFound, useRouter } from "@tanstack/react-router";
 import { useCallback, useEffect, useState } from "react";
 import { CommentThread } from "#/components/comment-thread";
+import { OwnerProjectActions } from "#/components/owner-project-actions";
 import { StaffProjectPanel } from "#/components/staff-project-panel";
 import { StatusBadge } from "#/components/status-badge";
 import { StatusTimeline } from "#/components/status-timeline";
@@ -19,7 +20,8 @@ type Comment = Parameters<typeof CommentThread>[0]["comments"][number];
 
 function ProjectDetail() {
   const router = useRouter();
-  const { project, history, canEdit, viewerIsStaff } = Route.useLoaderData();
+  const { project, history, canEdit, viewerIsStaff, viewerIsOwner } =
+    Route.useLoaderData();
   const [comments, setComments] = useState<Comment[]>([]);
   const projectId = project?.id as string | undefined;
 
@@ -54,6 +56,18 @@ function ProjectDetail() {
         >
           Edit
         </a>
+      )}
+
+      {viewerIsOwner && !viewerIsStaff && (
+        <OwnerProjectActions
+          project={{
+            id: project.id as string,
+            status: project.status as string,
+          }}
+          onChanged={() => {
+            void router.invalidate();
+          }}
+        />
       )}
 
       {project.imageUrl && (
