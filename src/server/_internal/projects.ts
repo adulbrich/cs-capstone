@@ -1,6 +1,7 @@
 import { eq } from "drizzle-orm";
 import { db } from "#/db";
 import { projectEditLog, projectStatusHistory, projects } from "#/db/schema";
+import { requireUser } from "#/lib/_internal/auth-guards";
 import { canEditProject, isStaff, type Viewer } from "#/lib/project-visibility";
 import {
   type ActorRole,
@@ -241,4 +242,42 @@ export async function hardDeleteProjectAs(
   if (!isOwner && !isStaff(visibility)) throw new Error("Forbidden");
   await db.delete(projects).where(eq(projects.id, id));
   return { id };
+}
+
+// Convenience wrappers that resolve the current user from the request
+// and delegate to the *As helpers. These are what the createServerFn
+// handlers in src/server/projects.ts call.
+
+export async function createProjectForCurrentUser(data: ProjectInput) {
+  const viewer = await requireUser();
+  return createProjectAs(viewer, data);
+}
+
+export async function updateProjectForCurrentUser(data: UpdateProjectInput) {
+  const viewer = await requireUser();
+  return updateProjectAs(viewer, data);
+}
+
+export async function performTransitionForCurrentUser(
+  id: string,
+  target: Status,
+  comment?: string,
+) {
+  const viewer = await requireUser();
+  return performTransitionAs(viewer, id, target, comment);
+}
+
+export async function softDeleteProjectForCurrentUser(id: string) {
+  const viewer = await requireUser();
+  return softDeleteProjectAs(viewer, id);
+}
+
+export async function restoreProjectForCurrentUser(id: string) {
+  const viewer = await requireUser();
+  return restoreProjectAs(viewer, id);
+}
+
+export async function hardDeleteProjectForCurrentUser(id: string) {
+  const viewer = await requireUser();
+  return hardDeleteProjectAs(viewer, id);
 }

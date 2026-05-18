@@ -1,6 +1,7 @@
 import { and, eq } from "drizzle-orm";
 import { db } from "#/db";
 import { projectComments, projects } from "#/db/schema";
+import { requireUser } from "#/lib/_internal/auth-guards";
 import { canSeeProject, isStaff } from "#/lib/project-visibility";
 import type { AddCommentInput } from "../comments";
 import { recordCommentNotifications } from "./notify";
@@ -64,4 +65,9 @@ export async function addCommentAs(
     );
   });
   return { id: createdId };
+}
+
+export async function addCommentForCurrentUser(data: AddCommentInput) {
+  const viewer = await requireUser();
+  return addCommentAs(viewer, data);
 }
