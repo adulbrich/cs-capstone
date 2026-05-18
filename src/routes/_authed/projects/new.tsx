@@ -1,5 +1,6 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ProjectForm } from "#/components/project-form";
+import { setProjectCategories } from "#/server/categories";
 import { createProject } from "#/server/projects";
 
 export const Route = createFileRoute("/_authed/projects/new")({
@@ -18,8 +19,9 @@ function NewProject() {
       <div className="mt-6">
         <ProjectForm
           showNotes={isStaff}
+          showCategories={isStaff}
           submitLabel="Create draft"
-          onSubmit={async (values) => {
+          onSubmit={async (values, categoryIds) => {
             const { id } = await createProject({
               data: {
                 ...values,
@@ -27,6 +29,11 @@ function NewProject() {
                 notes: isStaff ? values.notes || null : null,
               },
             });
+            if (isStaff && categoryIds.length > 0) {
+              await setProjectCategories({
+                data: { projectId: id, categoryIds },
+              });
+            }
             navigate({
               to: "/projects/$projectId",
               params: { projectId: id },

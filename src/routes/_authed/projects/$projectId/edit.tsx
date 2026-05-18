@@ -1,5 +1,9 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { ProjectForm } from "#/components/project-form";
+import {
+  listProjectCategories,
+  setProjectCategories,
+} from "#/server/categories";
 import { updateProject } from "#/server/projects";
 import { getProject } from "#/server/projects-queries";
 
@@ -12,14 +16,17 @@ export const Route = createFileRoute("/_authed/projects/$projectId/edit")({
         params: { projectId: params.projectId },
       });
     }
-    return data;
+    const { rows: categoryRows } = await listProjectCategories({
+      data: { projectId: params.projectId },
+    });
+    return { ...data, categoryIds: categoryRows.map((c) => c.id) };
   },
   component: EditProject,
 });
 
 function EditProject() {
   const navigate = useNavigate();
-  const { project, viewerIsStaff } = Route.useLoaderData();
+  const { project, viewerIsStaff, categoryIds } = Route.useLoaderData();
   if (!project) return null;
   return (
     <div className="mx-auto max-w-2xl p-8">
@@ -41,20 +48,28 @@ function EditProject() {
             programId: (project.programId as string) ?? "",
             notes: (project.notes as string) ?? "",
           }}
+          initialCategoryIds={categoryIds}
           showNotes={viewerIsStaff}
+          showCategories={viewerIsStaff}
           submitLabel="Save"
-          onSubmit={async (values) => {
+          onSubmit={async (values, nextCategoryIds) => {
+            const id = project.id as string;
             await updateProject({
               data: {
-                id: project.id as string,
+                id,
                 ...values,
                 programId: values.programId || null,
                 notes: viewerIsStaff ? values.notes || null : null,
               },
             });
+            if (viewerIsStaff) {
+              await setProjectCategories({
+                data: { projectId: id, categoryIds: nextCategoryIds },
+              });
+            }
             navigate({
               to: "/projects/$projectId",
-              params: { projectId: project.id as string },
+              params: { projectId: id },
             });
           }}
         />

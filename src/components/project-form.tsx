@@ -2,6 +2,8 @@ import { useForm } from "@tanstack/react-form";
 import { useState } from "react";
 import { z } from "zod";
 import { applyServerErrors } from "#/lib/apply-server-errors";
+import { CategoryMultiSelect } from "./category-multi-select";
+import { ProgramSelect } from "./program-select";
 
 const optionalUrl = z
   .union([z.literal(""), z.string().url("Must be a valid URL").max(500)])
@@ -35,18 +37,28 @@ export type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
 type Props = {
   initial?: Partial<ProjectFormValues>;
+  initialCategoryIds?: string[];
   showNotes: boolean;
+  showCategories: boolean;
   submitLabel: string;
-  onSubmit: (values: ProjectFormValues) => Promise<unknown>;
+  onSubmit: (
+    values: ProjectFormValues,
+    categoryIds: string[],
+  ) => Promise<unknown>;
 };
 
 export function ProjectForm({
   initial,
+  initialCategoryIds,
   showNotes,
+  showCategories,
   submitLabel,
   onSubmit,
 }: Props) {
   const [formError, setFormError] = useState<string | null>(null);
+  const [categoryIds, setCategoryIds] = useState<string[]>(
+    initialCategoryIds ?? [],
+  );
 
   const form = useForm({
     defaultValues: {
@@ -79,7 +91,7 @@ export function ProjectForm({
     onSubmit: async ({ value }) => {
       setFormError(null);
       try {
-        await onSubmit(value);
+        await onSubmit(value, categoryIds);
       } catch (err) {
         const handled = applyServerErrors(
           form as unknown as Parameters<typeof applyServerErrors>[0],
@@ -158,11 +170,20 @@ export function ProjectForm({
         textarea
         rows={2}
       />
-      <Field
-        form={form}
-        name="programId"
-        label="Program ID (UUID; admin UI coming in Spec 3)"
-      />
+      <form.Field name="programId">
+        {(field: AnyForm) => (
+          <div>
+            <label htmlFor="programId" className="block font-medium text-sm">
+              Program
+            </label>
+            <ProgramSelect
+              id="programId"
+              value={field.state.value as string}
+              onChange={(v) => field.handleChange(v)}
+            />
+          </div>
+        )}
+      </form.Field>
       {showNotes && (
         <Field
           form={form}
@@ -171,6 +192,17 @@ export function ProjectForm({
           textarea
           rows={3}
         />
+      )}
+      {showCategories && (
+        <div>
+          <p className="block font-medium text-sm">Categories</p>
+          <div className="mt-1">
+            <CategoryMultiSelect
+              value={categoryIds}
+              onChange={setCategoryIds}
+            />
+          </div>
+        </div>
       )}
 
       {formError && (
