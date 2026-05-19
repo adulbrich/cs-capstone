@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
-import { ProjectCard } from "#/components/project-card";
+import { ProjectListItem } from "#/components/project-list-item";
 import { ProjectsFilterBar } from "#/components/projects-filter-bar";
 import { searchProjects } from "#/server/search";
 
@@ -9,6 +9,7 @@ const searchSchema = z.object({
   categories: z.array(z.string().uuid()).default([]),
   program: z.string().uuid().nullable().default(null),
   page: z.number().int().min(1).default(1),
+  view: z.enum(["card", "row"]).default("card"),
 });
 
 export const Route = createFileRoute("/projects/")({
@@ -40,15 +41,24 @@ function ProjectsList() {
           q={search.q}
           categories={search.categories}
           program={search.program}
+          view={search.view}
         />
       </div>
-      <div className="mt-6 space-y-3">
+      <div
+        className={
+          search.view === "card"
+            ? "mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3"
+            : "mt-6 space-y-2"
+        }
+      >
         {rows.length === 0 ? (
           <p className="text-sm text-neutral-500">
             No projects matched your search.
           </p>
         ) : (
-          rows.map((p) => <ProjectCard key={p.id} project={p} />)
+          rows.map((p) => (
+            <ProjectListItem key={p.id} project={p} mode={search.view} />
+          ))
         )}
       </div>
       <div className="mt-6 flex items-center justify-between text-sm">

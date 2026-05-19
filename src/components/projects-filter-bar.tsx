@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { listCategories } from "#/server/categories";
 import { listPrograms } from "#/server/programs";
+import { ViewToggle } from "./view-toggle";
 
 type Category = { id: string; name: string; type: string };
 type Program = { id: string; courseId: string; courseName: string };
@@ -10,9 +11,10 @@ type Props = {
   q: string;
   categories: string[];
   program: string | null;
+  view: "card" | "row";
 };
 
-export function ProjectsFilterBar({ q, categories, program }: Props) {
+export function ProjectsFilterBar({ q, categories, program, view }: Props) {
   const navigate = useNavigate({ from: "/projects/" });
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [allPrograms, setAllPrograms] = useState<Program[]>([]);
@@ -78,13 +80,16 @@ export function ProjectsFilterBar({ q, categories, program }: Props) {
 
   return (
     <div className="border border-neutral-200 p-4 dark:border-neutral-800">
-      <input
-        type="search"
-        value={queryDraft}
-        onChange={(e) => setQueryDraft(e.target.value)}
-        placeholder='Search projects (try "phrase" or -word to exclude)'
-        className="w-full border p-2"
-      />
+      <div className="flex items-center gap-3">
+        <input
+          type="search"
+          value={queryDraft}
+          onChange={(e) => setQueryDraft(e.target.value)}
+          placeholder='Search projects (try "phrase" or -word to exclude)'
+          className="flex-1 border p-2"
+        />
+        <ViewToggle current={view} />
+      </div>
 
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div>
