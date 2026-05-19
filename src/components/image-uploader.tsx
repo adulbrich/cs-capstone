@@ -1,5 +1,5 @@
 import { Trash2 } from "lucide-react";
-import { useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import ReactCrop, {
   type Crop,
   centerCrop,
@@ -8,9 +8,7 @@ import ReactCrop, {
 import { getPublicUrl } from "#/lib/storage";
 
 function errorMessage(err: unknown): string {
-  return err instanceof Error
-    ? err.message
-    : "Upload failed. Please try again.";
+  return err instanceof Error ? err.message : "Image processing failed.";
 }
 
 type Props = {
@@ -18,9 +16,9 @@ type Props = {
   aspect?: number;
   maxWidth: number;
   maxHeight: number;
-  upload: (file: File) => Promise<{ key: string }>;
-  onUploaded: (key: string) => void;
-  onCleared?: () => Promise<void>;
+  // Emits the cropped File once the user commits a crop, or null when
+  // the user clicks Remove. The parent decides when to actually upload.
+  onChange: (file: File | null) => void;
 };
 
 export function ImageUploader({
@@ -28,18 +26,31 @@ export function ImageUploader({
   aspect,
   maxWidth,
   maxHeight,
-  upload,
-  onUploaded,
-  onCleared,
+  onChange,
 }: Props) {
   const [sourceUrl, setSourceUrl] = useState<string | null>(null);
   const [crop, setCrop] = useState<Crop | null>(null);
+  const [pickedFile, setPickedFile] = useState<File | null>(null);
+  const [cleared, setCleared] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const imgRef = useRef<HTMLImageElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  const currentUrl = getPublicUrl(currentKey);
+  // Preview URL for the cropped File. Revoked on cleanup so we don't leak.
+  const previewUrl = useMemo(
+    () => (pickedFile ? URL.createObjectURL(pickedFile) : null),
+    [pickedFile],
+  );
+  useEffect(() => {
+    return () => {
+      if (previewUrl) URL.revokeObjectURL(previewUrl);
+    };
+  }, [previewUrl]);
+
+  const savedUrl = !cleared && !pickedFile ? getPublicUrl(currentKey) : null;
+  const displayUrl = previewUrl ?? savedUrl;
+  const hasContent = Boolean(pickedFile || (!cleared && currentKey));
 
   function onPickFile(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -48,6 +59,7 @@ export function ImageUploader({
     reader.onload = () => {
       setSourceUrl(reader.result as string);
       setCrop(null);
+      setError(null);
     };
     reader.readAsDataURL(file);
     e.target.value = "";
@@ -74,7 +86,7 @@ export function ImageUploader({
     }
   }
 
-  async function onConfirm() {
+  async function onConfirmCrop() {
     if (!imgRef.current || !crop) return;
     setBusy(true);
     setError(null);
@@ -86,10 +98,11 @@ export function ImageUploader({
         maxHeight,
       );
       const file = new File([blob], "upload.webp", { type: "image/webp" });
-      const { key } = await upload(file);
-      onUploaded(key);
+      setPickedFile(file);
+      setCleared(false);
       setSourceUrl(null);
       setCrop(null);
+      onChange(file);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -97,23 +110,17 @@ export function ImageUploader({
     }
   }
 
-  function onCancel() {
+  function onCancelCrop() {
     setSourceUrl(null);
     setCrop(null);
     setError(null);
   }
 
-  async function onClickClear() {
-    if (!onCleared) return;
-    setBusy(true);
+  function onRemove() {
+    setPickedFile(null);
+    setCleared(true);
     setError(null);
-    try {
-      await onCleared();
-    } catch (err) {
-      setError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
+    onChange(null);
   }
 
   return (
@@ -137,15 +144,15 @@ export function ImageUploader({
           <div className="flex gap-2">
             <button
               type="button"
-              onClick={() => void onConfirm()}
+              onClick={() => void onConfirmCrop()}
               disabled={busy || !crop}
               className="bg-black px-3 py-1.5 text-sm text-white disabled:opacity-50"
             >
-              {busy ? "Uploading..." : "Save image"}
+              {busy ? "Processing..." : "Use image"}
             </button>
             <button
               type="button"
-              onClick={onCancel}
+              onClick={onCancelCrop}
               disabled={busy}
               className="border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100"
             >
@@ -156,9 +163,9 @@ export function ImageUploader({
         </div>
       ) : (
         <div className="space-y-2">
-          {currentUrl ? (
+          {displayUrl ? (
             <img
-              src={currentUrl}
+              src={displayUrl}
               alt="Current"
               className="max-h-48 border border-neutral-200 object-contain dark:border-neutral-800"
             />
@@ -171,13 +178,12 @@ export function ImageUploader({
               onClick={() => fileInputRef.current?.click()}
               className="border border-neutral-300 px-3 py-1.5 text-sm hover:bg-neutral-100"
             >
-              {currentKey ? "Replace image" : "Upload image"}
+              {hasContent ? "Replace image" : "Upload image"}
             </button>
-            {currentKey && onCleared && (
+            {hasContent && (
               <button
                 type="button"
-                onClick={() => void onClickClear()}
-                disabled={busy}
+                onClick={onRemove}
                 className="inline-flex items-center gap-1 border border-red-300 px-3 py-1.5 text-sm text-red-700 hover:bg-red-50"
               >
                 <Trash2 className="h-4 w-4" /> Remove

@@ -2,7 +2,6 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 
 const projectInputSchema = z.object({
-  id: z.string().uuid().optional(),
   title: z.string().min(1).max(200),
   description: z.string().max(5000).nullable().optional(),
   problemStatement: z.string().max(5000).nullable().optional(),

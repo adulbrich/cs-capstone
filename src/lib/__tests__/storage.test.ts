@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { getPublicUrl } from "../storage";
+import { getPublicUrl, STORAGE_PUBLIC_BASE } from "../storage";
 
-// Note: VITE_STORAGE_PUBLIC_BASE is captured at module load. We assert the
-// fallback path here. End-to-end URL wiring is covered by integration tests
-// where the real env is loaded.
+// PUBLIC_BASE is captured at module load. To stay agnostic of whether
+// VITE_STORAGE_PUBLIC_BASE is set in the test environment, assert against
+// the live STORAGE_PUBLIC_BASE export.
 
 describe("getPublicUrl", () => {
   it("returns null for null/undefined/empty", () => {
@@ -22,18 +22,9 @@ describe("getPublicUrl", () => {
   });
 
   it("prefixes the public base and strips leading slashes", () => {
-    // In the test runner, VITE_STORAGE_PUBLIC_BASE is unset, so PUBLIC_BASE
-    // falls back to `/storage`. We assert against that exact value, not a
-    // suffix-only regex, so a future change to either the fallback or the
-    // join logic is caught.
-    expect(getPublicUrl("projects/abc/img.webp")).toBe(
-      "/storage/projects/abc/img.webp",
-    );
-    expect(getPublicUrl("/projects/abc/img.webp")).toBe(
-      "/storage/projects/abc/img.webp",
-    );
-    expect(getPublicUrl("///projects/abc/img.webp")).toBe(
-      "/storage/projects/abc/img.webp",
-    );
+    const expected = `${STORAGE_PUBLIC_BASE}/projects/abc/img.webp`;
+    expect(getPublicUrl("projects/abc/img.webp")).toBe(expected);
+    expect(getPublicUrl("/projects/abc/img.webp")).toBe(expected);
+    expect(getPublicUrl("///projects/abc/img.webp")).toBe(expected);
   });
 });

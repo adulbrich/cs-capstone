@@ -6,6 +6,7 @@ import {
 } from "#/server/categories";
 import { updateProject } from "#/server/projects";
 import { getProject } from "#/server/projects-queries";
+import { uploadProjectImage } from "#/server/uploads";
 
 export const Route = createFileRoute("/_authed/projects/$projectId/edit")({
   loader: async ({ params }) => {
@@ -34,7 +35,6 @@ function EditProject() {
       <h1 className="text-2xl font-semibold">Edit project</h1>
       <div className="mt-6">
         <ProjectForm
-          projectId={projectId}
           initial={{
             title: project.title as string,
             description: (project.description as string) ?? "",
@@ -54,7 +54,7 @@ function EditProject() {
           showNotes={viewerIsStaff}
           showCategories={viewerIsStaff}
           submitLabel="Save"
-          onSubmit={async (values, nextCategoryIds) => {
+          onSubmit={async (values, nextCategoryIds, pendingImage) => {
             await updateProject({
               data: {
                 id: projectId,
@@ -63,6 +63,12 @@ function EditProject() {
                 notes: viewerIsStaff ? values.notes || null : null,
               },
             });
+            if (pendingImage) {
+              const form = new FormData();
+              form.append("projectId", projectId);
+              form.append("file", pendingImage);
+              await uploadProjectImage({ data: form });
+            }
             if (viewerIsStaff) {
               await setProjectCategories({
                 data: { projectId, categoryIds: nextCategoryIds },

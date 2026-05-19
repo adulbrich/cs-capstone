@@ -50,19 +50,9 @@ export async function createProjectAs(
     ? (data.notes ?? null)
     : null;
 
-  if (data.id) {
-    // Guard against race: refuse if a row already exists with this id.
-    const [exists] = await db
-      .select({ id: projects.id })
-      .from(projects)
-      .where(eq(projects.id, data.id));
-    if (exists) throw new Error("Project id already in use");
-  }
-
   const [created] = await db
     .insert(projects)
     .values({
-      ...(data.id ? { id: data.id } : {}),
       title: data.title,
       description: data.description ?? null,
       problemStatement: data.problemStatement ?? null,

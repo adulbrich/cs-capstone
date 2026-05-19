@@ -75,10 +75,7 @@ export function NotificationBell() {
         className="relative px-2 py-1 hover:bg-neutral-100"
       >
         {unread > 0 ? (
-          <BellRing
-            className="h-5 w-5 text-amber-600"
-            aria-hidden="true"
-          />
+          <BellRing className="h-5 w-5 text-amber-600" aria-hidden="true" />
         ) : (
           <Bell className="h-5 w-5" aria-hidden="true" />
         )}

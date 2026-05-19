@@ -1,5 +1,5 @@
-import { LayoutGrid, List } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import { LayoutGrid, List } from "lucide-react";
 
 type Props = {
   current: "card" | "row";

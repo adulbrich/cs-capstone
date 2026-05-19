@@ -37,7 +37,6 @@ export const projectFormSchema = z.object({
 export type ProjectFormValues = z.infer<typeof projectFormSchema>;
 
 type Props = {
-  projectId: string;
   initial?: Partial<ProjectFormValues>;
   initialCategoryIds?: string[];
   showNotes: boolean;
@@ -46,11 +45,11 @@ type Props = {
   onSubmit: (
     values: ProjectFormValues,
     categoryIds: string[],
+    pendingImage: File | null,
   ) => Promise<unknown>;
 };
 
 export function ProjectForm({
-  projectId,
   initial,
   initialCategoryIds,
   showNotes,
@@ -61,6 +60,11 @@ export function ProjectForm({
   const [formError, setFormError] = useState<string | null>(null);
   const [categoryIds, setCategoryIds] = useState<string[]>(
     initialCategoryIds ?? [],
+  );
+  // `undefined`: user did not touch the image. `File`: new file to upload on
+  // submit. `null`: user clicked Remove, server should clear the image.
+  const [pendingImage, setPendingImage] = useState<File | null | undefined>(
+    undefined,
   );
 
   const form = useForm({
@@ -94,7 +98,7 @@ export function ProjectForm({
     onSubmit: async ({ value }) => {
       setFormError(null);
       try {
-        await onSubmit(value, categoryIds);
+        await onSubmit(value, categoryIds, pendingImage ?? null);
       } catch (err) {
         const handled = applyServerErrors(
           form as unknown as Parameters<typeof applyServerErrors>[0],
@@ -166,13 +170,18 @@ export function ProjectForm({
             <p className="block font-medium text-sm">Image</p>
             <div className="mt-1">
               <ProjectImageUploader
-                projectId={projectId}
                 currentKey={(field.state.value as string) || null}
-                onUploaded={(key) => field.handleChange(key)}
+                onChange={(file) => {
+                  setPendingImage(file);
+                  // If user clicked Remove on an existing saved image,
+                  // clear the form field so submit persists the deletion.
+                  if (file === null) field.handleChange("");
+                }}
               />
             </div>
             <p className="mt-1 text-xs text-neutral-500">
-              Cropped to 16:9 and resized to max 1600x900 before upload.
+              Cropped to 16:9 and resized to max 1600x900. Saved when you submit
+              the form.
             </p>
           </div>
         )}
