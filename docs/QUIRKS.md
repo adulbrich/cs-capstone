@@ -392,6 +392,119 @@ The user has explicitly consented to assistant commits landing on `main` for thi
 
 ---
 
+## Object storage (S3-compatible)
+
+### Sharp is server-only; never ships to the client
+
+Sharp is a Node.js native binding (compiled C++ via libvips). It
+physically cannot run in a browser. Bundlers exclude native modules
+from client builds automatically. The ~30MB on-disk install is purely
+server-side. If you need image processing in the browser, use the
+built-in `<canvas>` API (which is what our ImageUploader does for crop +
+resize).
+
+### Sharp's `.withMetadata({})` does NOT strip EXIF
+
+This is the opposite of what you'd expect. In Sharp 0.34.x,
+`.withMetadata()` preserves metadata; passing an empty options object
+does NOT mean "strip everything," it means "preserve with these
+options." To strip EXIF, GPS, and orientation, simply omit
+`.withMetadata()` entirely. Sharp's default is metadata-free output.
+
+The EXIF-strip test in `src/lib/__tests__/image-processing.test.ts`
+caught this when an explicit fixture with EXIF Orientation came out
+with the metadata intact.
+
+### Storage keys vs URLs
+
+The DB columns (`projects.imageUrl`, `user.image`) hold storage keys
+(e.g., `projects/<id>/<uuid>.webp`), NOT full URLs. The
+`getPublicUrl(key)` helper in `src/lib/storage.ts` builds the URL at
+render time. It has a pass-through for legacy `http(s)://` values so
+the same column can hold both shapes.
+
+Why keys: swapping to a CDN, changing buckets, or moving to signed
+URLs is a one-line change in the helper, not a data migration.
+
+### Optimistic project IDs for image upload on `/projects/new`
+
+The new-project route generates `crypto.randomUUID()` on mount and
+passes it to BOTH `<ProjectImageUploader>` (so the upload writes to
+`projects/<id>/<uuid>.webp`) AND `createProject({ data: { id, ... } })`
+(so the row's id matches the path). The server refuses if a row with
+that id already exists.
+
+Trade-off: if the user uploads then abandons the form, the blob in the
+bucket has no owning row. This is an accepted orphan. A future
+one-shot script can diff `bucket-list-of-prefixes` against
+`SELECT id FROM projects` and delete the difference.
+
+### TanStack Start FormData server functions
+
+`createServerFn(...).inputValidator(...)` accepts FormData when the
+validator returns the input as-is:
+
+```ts
+export const uploadProjectImage = createServerFn({ method: "POST" })
+  .inputValidator((data: unknown) => {
+    if (!(data instanceof FormData)) throw new Error("Expected FormData");
+    return data;
+  })
+  .handler(async ({ data }) => { /* data is FormData */ });
+```
+
+The client sends:
+
+```ts
+const form = new FormData();
+form.append("file", file);
+await uploadProjectImage({ data: form });
+```
+
+If the framework version stops accepting raw FormData in `data`, the
+fallback is a plain API route in `src/routes/api/upload/<name>.tsx`
+that reads `request.formData()` directly and calls the same
+`_internal/uploads.ts` helpers via fetch from the client.
+
+### `requireUser()` blocks integration tests; layer `*As(viewer, ...)`
+
+`requireUser()` reads from TanStack Start's AsyncLocalStorage request
+context, which the Vitest integration harness cannot provide. Server
+helpers that need to be exercised by an integration test should split
+into two layers:
+
+- `*As(viewer, ...)`: pure logic, takes an explicit viewer.
+- `*ForCurrentUser(...)`: thin wrapper that calls `requireUser()` and
+  delegates to `*As`.
+
+Integration tests construct a synthetic viewer (`{ id, role }`) via
+the local `makeUser` helper and call the `*As` variant directly. See
+`uploadProjectImageAs` / `uploadProjectImageForCurrentUser` in
+`src/server/_internal/uploads.ts` for the canonical pair. The avatar
+upload path is not test-covered because the same split would be
+needed; the project test covers the same Sharp + bucket + row update
+pipeline.
+
+### Buffer is not a BlobPart in lib.dom
+
+When building a `new File([bytes], ...)` in a Node test where `bytes`
+is a `Buffer`, tsc rejects with a BlobPart type error. Wrap in a
+`Uint8Array` view: `new File([new Uint8Array(bytes)], ...)`. No copy,
+same memory.
+
+### RustFS local bucket bootstrap
+
+The container starts without a bucket. Run `npm run storage:init`
+once per fresh docker volume to create the bucket. The script is
+idempotent (catches `BucketAlreadyOwnedByYou` / `BucketAlreadyExists`).
+
+### `react-image-crop` SSR safety
+
+`react-image-crop` uses DOM APIs (FileReader, document, canvas). The
+ImageUploader component never accesses these at the module top level;
+all DOM work happens inside event handlers or after the user picks a
+file. The component renders a button-only state during SSR.
+
 ## When you add a quirk
 
 If you discover a new framework behavior that surprised you, add it here. The rule of thumb: "if it cost more than 30 minutes to figure out, future-us deserves to find it written down."

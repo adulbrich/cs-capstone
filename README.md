@@ -212,6 +212,37 @@ Admins cannot change their own role or ban themselves; the server refuses self-a
 
 Production note: keep at least two `admin` users. The self-action guard prevents a sole admin from accidentally demoting themselves into a one-way trap. Use `npm run db:seed:admin` or a direct `db:studio` edit to bootstrap the second admin.
 
+## Media + revised listing (Spec 5)
+
+Images are stored in an S3-compatible bucket (RustFS locally, AWS S3
+in production). Project images and user avatars are uploaded via a
+client-side crop + canvas-resize pipeline so the network payload is
+~150-400KB regardless of source file size. The server runs Sharp on the
+already-small upload to strip EXIF and re-encode WebP at consistent
+quality.
+
+Storage rows hold *keys* (`projects/<id>/<uuid>.webp`,
+`avatars/<userId>/<uuid>.webp`), not URLs. The `getPublicUrl(key)`
+helper builds the rendered URL with a pass-through for legacy
+`http(s)://` values so existing rows (DiceBear identicons, OAuth
+images) keep rendering.
+
+Bucket setup (local):
+
+```bash
+docker compose up -d rustfs
+npm run storage:init    # idempotent
+```
+
+The `/projects` listing has a `?view=card|row` URL toggle. Card mode
+(default) renders a 16:9 image at the top of each tile; row mode
+renders an 80x80 thumbnail at the left of each line. Filters and
+search still apply identically in both modes.
+
+Production note: configure the bucket as public-read at the bucket
+policy level on AWS, or run with `S3_ENDPOINT` set to your CDN base.
+Set `VITE_STORAGE_PUBLIC_BASE` to the customer-facing URL prefix.
+
 ## Routing
 
 This project uses [TanStack Router](https://tanstack.com/router) with file-based routing. Routes are managed as files in `src/routes`.
