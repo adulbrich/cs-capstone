@@ -20,7 +20,8 @@ export function ViewToggle({ current }: Props) {
   const inactive = "hover:bg-neutral-100 dark:hover:bg-neutral-900";
 
   return (
-    <div className="flex">
+    // biome-ignore lint/a11y/useSemanticElements: aria role=group with label is the right pattern for paired toggle buttons
+    <div className="flex" role="group" aria-label="View mode">
       <button
         type="button"
         onClick={() => setMode("card")}
