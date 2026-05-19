@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
+import sharp from "sharp";
 import { describe, expect, it } from "vitest";
 import { processImage } from "../_internal/image-processing";
 
@@ -33,5 +34,31 @@ describe("processImage", () => {
     });
     expect(result.width).toBe(200);
     expect(result.height).toBe(200);
+  });
+
+  it("strips EXIF metadata from the output", async () => {
+    // Build a JPEG with EXIF orientation tagged on it.
+    const withExif = await sharp({
+      create: {
+        width: 200,
+        height: 200,
+        channels: 3,
+        background: { r: 0, g: 128, b: 255 },
+      },
+    })
+      .withExif({ IFD0: { Orientation: "1" } })
+      .jpeg()
+      .toBuffer();
+
+    // Sanity: the input fixture actually has EXIF metadata.
+    const inputMeta = await sharp(withExif).metadata();
+    expect(inputMeta.exif).toBeTruthy();
+
+    const result = await processImage(withExif, {
+      maxWidth: 100,
+      maxHeight: 100,
+    });
+    const outMeta = await sharp(result.buffer).metadata();
+    expect(outMeta.exif).toBeUndefined();
   });
 });

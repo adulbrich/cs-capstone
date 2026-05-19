@@ -16,7 +16,7 @@ export async function processImage(
   input: Buffer,
   opts: ProcessImageOptions,
 ): Promise<ProcessedImage> {
-  const buffer = await sharp(input)
+  const { data, info } = await sharp(input)
     .rotate()
     .resize({
       width: opts.maxWidth,
@@ -25,14 +25,12 @@ export async function processImage(
       withoutEnlargement: true,
     })
     .webp({ quality: 85 })
-    .withMetadata({})
-    .toBuffer();
+    .toBuffer({ resolveWithObject: true });
 
-  const { width, height } = await sharp(buffer).metadata();
   return {
-    buffer,
+    buffer: data,
     contentType: "image/webp",
-    width: width ?? 0,
-    height: height ?? 0,
+    width: info.width,
+    height: info.height,
   };
 }
