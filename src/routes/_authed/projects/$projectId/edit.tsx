@@ -28,11 +28,13 @@ function EditProject() {
   const navigate = useNavigate();
   const { project, viewerIsStaff, categoryIds } = Route.useLoaderData();
   if (!project) return null;
+  const projectId = project.id as string;
   return (
     <div className="mx-auto max-w-2xl p-8">
       <h1 className="text-2xl font-semibold">Edit project</h1>
       <div className="mt-6">
         <ProjectForm
+          projectId={projectId}
           initial={{
             title: project.title as string,
             description: (project.description as string) ?? "",
@@ -53,10 +55,9 @@ function EditProject() {
           showCategories={viewerIsStaff}
           submitLabel="Save"
           onSubmit={async (values, nextCategoryIds) => {
-            const id = project.id as string;
             await updateProject({
               data: {
-                id,
+                id: projectId,
                 ...values,
                 programId: values.programId || null,
                 notes: viewerIsStaff ? values.notes || null : null,
@@ -64,12 +65,12 @@ function EditProject() {
             });
             if (viewerIsStaff) {
               await setProjectCategories({
-                data: { projectId: id, categoryIds: nextCategoryIds },
+                data: { projectId, categoryIds: nextCategoryIds },
               });
             }
             navigate({
               to: "/projects/$projectId",
-              params: { projectId: id },
+              params: { projectId },
             });
           }}
         />
