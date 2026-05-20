@@ -120,7 +120,11 @@ function MobileMenu({
           <Menu className="h-5 w-5" />
         </Button>
       </SheetTrigger>
-      <SheetContent side="left" className="w-72 p-0">
+      <SheetContent
+        side="left"
+        className="w-72 p-0"
+        aria-describedby={undefined}
+      >
         <SheetHeader className="flex flex-row items-center justify-between border-b border-border px-4 py-3">
           <SheetTitle className="text-base font-semibold">
             Navigation

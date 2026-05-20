@@ -56,10 +56,14 @@
 
 - Have "summary" cards in the admin (# of users, # of published projects etc.) -  should it be in /admin or on the separate routes (/admin/projects, /admin/users, etc.)?
   - Figure out what are the most important metrics to show in the summary cards.
+- Have a real "analytics dashboard" with charts and graphs for project trends, user engagement, etc. (stretch goal)
+  - Look at how many projects we published per academic year, etc.
+  - Look at how many projects were submitted per period, etc.
+  - Make the ranges customizable because of how "academic year" is defined and also because project recruitment starts before the academic year starts.
 
 ## Current Bugs
 
-- On the admin page, the "Users" link should not show for instructors.
+- Contract is dark mode is horrendous. Need a design pass. We need an actionable accessibility report to pass to Claude Code.
 
 ## Getting Started
 

@@ -57,6 +57,14 @@ npm db:migrate
 
 Use shadcn/ui with the `npm dlx shadcn@latest add <component>` command. Existing components are in `src/components/ui/`.
 
+## Server functions
+
+Always import `createServerFn` from `@tanstack/react-start`, not `@tanstack/start`:
+
+```ts
+import { createServerFn } from "@tanstack/react-start";
+```
+
 ## Code Quality
 
 This project uses Biome for formatting and linting. Always run `npm run check` after finishing work and fix any formatting or linting issues before committing.

@@ -4,7 +4,7 @@
 @import 'tw-animate-css';
 @import "react-image-crop/dist/ReactCrop.css";
 
-@custom-variant dark (&:is(.dark *));
+@custom-variant dark (@media (prefers-color-scheme: dark));
 
 :root {
   /* Brand defaults — must match brand.ts values exactly.
@@ -90,28 +90,48 @@
   --chart-5: oklch(0.769 0.188 70.08);
 }
 
-.dark {
+@media (prefers-color-scheme: dark) {
+:root {
+  /* Brand — primary kept for buttons/indicators; dark bumped to #FF8C5A so
+     link text clears WCAG AA on every dark surface (7:1 on #1C1C1C) */
   --brand-primary:        #EF5713;
-  --brand-primary-dark:   #D73F09;
+  --brand-primary-dark:   #FF8C5A;
   --brand-primary-tint:   rgba(239, 87, 19, 0.12);
 
-  --surface-base:         #131313;
-  --surface-raised:       #1E1E1E;
-  --surface-sunken:       #252525;
+  /* Surfaces — deeper base gives more range for the gradient */
+  --surface-base:         #111111;
+  --surface-raised:       #1C1C1C;
+  --surface-sunken:       #242424;
 
-  --text-primary:         #F5F1EE;
-  --text-secondary:       #9A9490;
-  --text-tertiary:        #635E5A;
+  /* Text — secondary/tertiary lightened to clear WCAG AA on all surfaces:
+     #ADA8A4 → 7:1, #908B87 → 4.8:1 on #1C1C1C */
+  --text-primary:         #EDE9E5;
+  --text-secondary:       #ADA8A4;
+  --text-tertiary:        #908B87;
 
-  --line:                 rgba(245, 241, 238, 0.10);
-  --focus-ring:           rgba(239, 87, 19, 0.40);
-  --inset-glint:          rgba(245, 241, 238, 0.10);
-  --header-bg:            rgba(19, 19, 19, 0.88);
-  --chip-bg:              rgba(30, 30, 30, 0.90);
+  /* Chrome */
+  --line:                 rgba(245, 241, 238, 0.14);
+  --focus-ring:           rgba(239, 87, 19, 0.45);
+  --inset-glint:          rgba(245, 241, 238, 0.06);
+  --header-bg:            rgba(17, 17, 17, 0.88);
+  --chip-bg:              rgba(28, 28, 28, 0.92);
   --chip-line:            rgba(239, 87, 19, 0.22);
-  --hero-a:               rgba(239, 87, 19, 0.14);
-  --hero-b:               rgba(26, 17, 0, 0.40);
+  --hero-a:               rgba(239, 87, 19, 0.10);
+  --hero-b:               rgba(0, 0, 0, 0.55);
 
+  /* Status — all override `:root` values that fail on dark surfaces */
+  --status-success:       #66BB6A;
+  --status-success-bg:    rgba(102, 187, 106, 0.12);
+  --status-warning:       #FFA726;
+  --status-warning-bg:    rgba(255, 167, 38, 0.12);
+  --status-error:         #EF5350;
+  --status-error-bg:      rgba(239, 83, 80, 0.12);
+  --status-info:          #42A5F5;
+  --status-info-bg:       rgba(66, 165, 245, 0.12);
+  --status-neutral:       #9E9E9E;
+  --status-neutral-bg:    rgba(158, 158, 158, 0.12);
+
+  /* shadcn token remapping */
   --background:                  var(--surface-base);
   --foreground:                  var(--text-primary);
   --card:                        var(--surface-raised);
@@ -128,8 +148,9 @@
   --accent-foreground:           var(--text-primary);
   --destructive:                 var(--status-error);
   --destructive-foreground:      #FFFFFF;
-  --border:                      rgba(245, 241, 238, 0.12);
-  --input:                       rgba(245, 241, 238, 0.08);
+  /* border/input raised so outline buttons are visible */
+  --border:                      rgba(245, 241, 238, 0.18);
+  --input:                       rgba(245, 241, 238, 0.15);
   --ring:                        var(--focus-ring);
   --sidebar:                     var(--surface-raised);
   --sidebar-foreground:          var(--text-primary);
@@ -137,8 +158,38 @@
   --sidebar-primary-foreground:  #FFFFFF;
   --sidebar-accent:              var(--surface-sunken);
   --sidebar-accent-foreground:   var(--text-primary);
-  --sidebar-border:              rgba(245, 241, 238, 0.12);
+  --sidebar-border:              rgba(245, 241, 238, 0.18);
   --sidebar-ring:                var(--focus-ring);
+}
+
+/* Background: directional gradient replaces the light-bleed color-mix() */
+body {
+  background:
+    radial-gradient(1100px 620px at -8% -10%, var(--hero-a), transparent 58%),
+    radial-gradient(1050px 620px at 112% -12%, var(--hero-b), transparent 62%),
+    linear-gradient(160deg, #090909 0%, #171717 55%, #111111 100%);
+}
+
+/* Tone down the light blobs — they're distracting on dark */
+body::before {
+  opacity: 0.12;
+  background:
+    radial-gradient(circle at 20% 15%, rgba(255, 255, 255, 0.04), transparent 34%),
+    radial-gradient(circle at 78% 26%, rgba(239, 87, 19, 0.08), transparent 42%),
+    radial-gradient(circle at 42% 82%, rgba(0, 0, 0, 0.20), transparent 36%);
+}
+
+/* Subtle grid — opacity pulled back so it doesn't compete with content */
+body::after {
+  opacity: 0.05;
+}
+
+/* Link decoration matches the lighter orange */
+@layer base {
+  a {
+    text-decoration-color: rgba(255, 140, 90, 0.35);
+  }
+}
 }
 
 @theme inline {
