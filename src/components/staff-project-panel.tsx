@@ -113,7 +113,7 @@ export function StaffProjectPanel({
   }
 
   return (
-    <div className="mt-8 rounded-lg border-2 border-[var(--brand-primary-tint)] bg-card p-4">
+    <div className="mt-8 rounded-lg border-2 border-(--brand-primary-tint) bg-card p-4">
       <p className="island-kicker mb-3">Staff panel</p>
 
       {/* Status stepper — vertical on mobile, horizontal on md+ */}
@@ -144,12 +144,12 @@ export function StaffProjectPanel({
                     {/* vertical track line (mobile) */}
                     <div
                       aria-hidden
-                      className="ml-3.5 h-4 w-px flex-shrink-0 bg-border md:hidden"
+                      className="ml-3.5 h-4 w-px shrink-0 bg-border md:hidden"
                     />
                     {/* horizontal track line (desktop) */}
                     <div
                       aria-hidden
-                      className="hidden h-px w-5 flex-shrink-0 bg-border md:block"
+                      className="hidden h-px w-5 shrink-0 bg-border md:block"
                     />
                   </>
                 )}
@@ -179,11 +179,11 @@ export function StaffProjectPanel({
 
       <div className="mt-2 flex items-center gap-4 text-xs text-muted-foreground">
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full bg-[var(--brand-primary)]" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full bg-brand" />
           Current
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-[var(--brand-primary)]" />
+          <span className="inline-block h-2.5 w-2.5 rounded-full border-2 border-brand" />
           Normal flow
         </span>
         <span className="flex items-center gap-1.5">

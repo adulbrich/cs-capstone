@@ -54,6 +54,9 @@
 
 ## Improvements
 
+- Have "summary" cards in the admin (# of users, # of published projects etc.) -  should it be in /admin or on the separate routes (/admin/projects, /admin/users, etc.)?
+  - Figure out what are the most important metrics to show in the summary cards.
+
 ## Current Bugs
 
 - On the admin page, the "Users" link should not show for instructors.

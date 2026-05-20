@@ -6,6 +6,14 @@ import {
 } from "@tanstack/react-router";
 import { BanForm } from "#/components/ban-form";
 import { RoleSelect } from "#/components/role-select";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "#/components/ui/breadcrumb";
 import { getSession } from "#/lib/auth-guards";
 import { pageTitle } from "#/lib/page-title";
 import { getUser } from "#/server/users";
@@ -39,7 +47,26 @@ function UserDetail() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 md:p-8">
-      <h1 className="text-2xl font-semibold">{user.name ?? user.email}</h1>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/admin">Admin</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/admin/users">Users</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{user.name ?? user.email}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <h1 className="mt-2 text-2xl font-semibold">{user.name ?? user.email}</h1>
       <p className="mt-1 text-sm text-muted-foreground">{user.email}</p>
       {isSelf && (
         <p className="mt-1 text-xs text-muted-foreground">

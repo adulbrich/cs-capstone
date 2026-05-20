@@ -6,6 +6,14 @@ import {
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { AdminTable } from "#/components/admin-table";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "#/components/ui/breadcrumb";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { getSession } from "#/lib/auth-guards";
@@ -51,7 +59,20 @@ function ProgramsAdmin() {
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:p-8">
-      <h1 className="text-2xl font-semibold">Admin: programs</h1>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/admin">Admin</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Programs</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <h1 className="mt-2 text-2xl font-semibold">Programs</h1>
 
       <form onSubmit={onCreate} className="mt-6 grid gap-2 md:grid-cols-3">
         <Input

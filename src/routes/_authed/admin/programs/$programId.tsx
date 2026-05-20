@@ -1,11 +1,20 @@
 import {
   createFileRoute,
+  Link,
   redirect,
   useNavigate,
   useRouter,
 } from "@tanstack/react-router";
 import { useState } from "react";
 import { InstructorManager } from "#/components/instructor-manager";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "#/components/ui/breadcrumb";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
@@ -71,7 +80,26 @@ function ProgramEdit() {
 
   return (
     <div className="mx-auto max-w-2xl px-4 py-6 md:p-8">
-      <h1 className="text-2xl font-semibold">Edit program</h1>
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/admin">Admin</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/admin/programs">Programs</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>{program.courseId}</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <h1 className="mt-2 text-2xl font-semibold">Edit program</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         {projectCount} linked project{projectCount === 1 ? "" : "s"}
       </p>

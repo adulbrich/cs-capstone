@@ -1,6 +1,26 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
+import {
+  createFileRoute,
+  Link,
+  redirect,
+  useNavigate,
+} from "@tanstack/react-router";
 import { z } from "zod";
 import { ProjectRow } from "#/components/project-row";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "#/components/ui/breadcrumb";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "#/components/ui/select";
 import { getSession } from "#/lib/auth-guards";
 import { pageTitle } from "#/lib/page-title";
 import { listAdminProjects } from "#/server/projects-queries";
@@ -48,10 +68,70 @@ export const Route = createFileRoute("/_authed/admin/projects/")({
 function AdminProjects() {
   const { rows } = Route.useLoaderData();
   const { status, includeSoftDeleted } = Route.useSearch();
+  const navigate = useNavigate();
+
+  const label = (s: string) => s.replace(/_/g, " ");
+
+  const softDeleteToggle = (
+    <Link
+      to="/admin/projects"
+      search={(prev) => ({
+        ...prev,
+        includeSoftDeleted: !includeSoftDeleted,
+      })}
+      className="text-xs text-muted-foreground hover:text-foreground"
+    >
+      {includeSoftDeleted ? "Hide soft-deleted" : "Show soft-deleted"}
+    </Link>
+  );
+
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:p-8">
-      <h1 className="text-2xl font-semibold">Admin: projects</h1>
-      <div className="mt-4 flex items-end justify-between">
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link to="/admin">Admin</Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage>Projects</BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+      <h1 className="mt-2 text-2xl font-semibold">Projects</h1>
+
+      {/* Mobile: Select + soft-deleted toggle */}
+      <div className="mt-4 space-y-2 md:hidden">
+        <Select
+          value={status}
+          onValueChange={(s) =>
+            void navigate({
+              to: "/admin/projects",
+              search: (prev) => ({
+                ...prev,
+                status: s as (typeof STATUSES)[number],
+              }),
+            })
+          }
+        >
+          <SelectTrigger className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STATUSES.map((s) => (
+              <SelectItem key={s} value={s}>
+                {label(s)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        {softDeleteToggle}
+      </div>
+
+      {/* Desktop: tab strip + soft-deleted toggle */}
+      <div className="mt-4 hidden items-end justify-between md:flex">
         <div className="flex border-b border-border text-sm">
           {STATUSES.map((s) => (
             <Link
@@ -69,20 +149,11 @@ function AdminProjects() {
                   : undefined
               }
             >
-              {s.replace(/_/g, " ")}
+              {label(s)}
             </Link>
           ))}
         </div>
-        <Link
-          to="/admin/projects"
-          search={(prev) => ({
-            ...prev,
-            includeSoftDeleted: !includeSoftDeleted,
-          })}
-          className="mb-2 text-xs text-muted-foreground hover:text-foreground"
-        >
-          {includeSoftDeleted ? "Hide soft-deleted" : "Show soft-deleted"}
-        </Link>
+        <div className="mb-2">{softDeleteToggle}</div>
       </div>
       <div className="mt-4 space-y-2">
         {rows.length === 0 ? (
