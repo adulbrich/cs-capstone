@@ -1,6 +1,6 @@
 # AI Agent Instructions
 
-This project is a TanStack Start application with React SSR, TanStack Query, TanStack Router, Drizzle ORM, and Better Auth.
+This project is a TanStack Start application with React SSR, TanStack Query, TanStack Router, Drizzle ORM, and Better Auth. Object storage is handled with S3-compatible RustFS locally. The UI is built with shadcn/ui components and Radix primitives.
 
 ## Quick Start
 

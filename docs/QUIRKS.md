@@ -426,19 +426,6 @@ the same column can hold both shapes.
 Why keys: swapping to a CDN, changing buckets, or moving to signed
 URLs is a one-line change in the helper, not a data migration.
 
-### Optimistic project IDs for image upload on `/projects/new`
-
-The new-project route generates `crypto.randomUUID()` on mount and
-passes it to BOTH `<ProjectImageUploader>` (so the upload writes to
-`projects/<id>/<uuid>.webp`) AND `createProject({ data: { id, ... } })`
-(so the row's id matches the path). The server refuses if a row with
-that id already exists.
-
-Trade-off: if the user uploads then abandons the form, the blob in the
-bucket has no owning row. This is an accepted orphan. A future
-one-shot script can diff `bucket-list-of-prefixes` against
-`SELECT id FROM projects` and delete the difference.
-
 ### TanStack Start FormData server functions
 
 `createServerFn(...).inputValidator(...)` accepts FormData when the

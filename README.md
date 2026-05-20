@@ -34,6 +34,9 @@
 - Admins have access to an admin view to manage projects, programs, users, ctageories (can be 4 separate views or a single view with tabs).
 - Categories/tags can only be added by admins on projects, can be managed separately, and we could use Gen AI to find the best categories for a project based on its content.
   - We could consider different type of categories (project type, technology stack, industry, field, etc.) and allow filtering by each of them.
+
+### Project Bidding and Assignment (Stretch)
+
 - (Stretch) Students can bid on preferred projects (top 5) at the beginning of the year, for a specific program, with motivation and qualifications. Bids are visible to admins and project proposers, but not to other students.
 - (Stretch) Admins can assign students to projects based on their bids and project preferences (automatically or manually).
 
