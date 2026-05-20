@@ -5,6 +5,13 @@ import {
   removeProgramInstructor,
 } from "#/server/programs";
 import { Button } from "./ui/button";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 type Instructor = {
   userId: string;
@@ -102,18 +109,18 @@ export function InstructorManager({ programId, initial, onChanged }: Props) {
         </ul>
       )}
       <div className="mt-3 flex gap-2">
-        <select
-          value={picked}
-          onChange={(e) => setPicked(e.target.value)}
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
-        >
-          <option value="">Add instructor...</option>
-          {remaining.map((e) => (
-            <option key={e.id} value={e.id}>
-              {e.name ?? e.email} ({e.role})
-            </option>
-          ))}
-        </select>
+        <Select value={picked} onValueChange={setPicked}>
+          <SelectTrigger size="sm" className="w-64">
+            <SelectValue placeholder="Add instructor..." />
+          </SelectTrigger>
+          <SelectContent>
+            {remaining.map((e) => (
+              <SelectItem key={e.id} value={e.id}>
+                {e.name ?? e.email} ({e.role})
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <Button
           type="button"
           size="sm"

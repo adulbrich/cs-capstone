@@ -9,7 +9,15 @@ import { z } from "zod";
 import { AdminTable } from "#/components/admin-table";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "#/components/ui/select";
 import { getSession } from "#/lib/auth-guards";
+import { pageTitle } from "#/lib/page-title";
 import { listUsers } from "#/server/users";
 
 const ROLES = ["user", "instructor", "admin"] as const;
@@ -23,6 +31,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/_authed/admin/users/")({
   validateSearch: searchSchema,
+  head: () => ({ meta: [{ title: pageTitle("Users") }] }),
   beforeLoad: async () => {
     const session = await getSession();
     if (!session?.user) throw redirect({ to: "/sign-in" });
@@ -82,29 +91,32 @@ function UsersAdmin() {
         </div>
         <div>
           <Label htmlFor="user-role">Role</Label>
-          <select
-            id="user-role"
-            value={role ?? ""}
-            onChange={(e) =>
+          <Select
+            value={role ?? "_all_"}
+            onValueChange={(v) =>
               void navigate({
                 search: (prev) => ({
                   ...prev,
-                  role: (e.target.value || null) as
+                  role: (v === "_all_" ? null : v) as
                     | (typeof ROLES)[number]
                     | null,
                   page: 1,
                 }),
               })
             }
-            className="mt-1 rounded-md border border-border bg-background px-3 py-1.5 text-sm"
           >
-            <option value="">All roles</option>
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {r}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="user-role" size="sm" className="mt-1 w-36">
+              <SelectValue placeholder="All roles" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all_">All roles</SelectItem>
+              {ROLES.map((r) => (
+                <SelectItem key={r} value={r}>
+                  {r}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
         <label className="flex items-center gap-1 text-sm">
           <input

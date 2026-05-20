@@ -5,9 +5,11 @@ import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { authClient } from "#/lib/auth-client";
+import { pageTitle } from "#/lib/page-title";
 import { updateProfile } from "#/server/profile";
 
 export const Route = createFileRoute("/_authed/profile")({
+  head: () => ({ meta: [{ title: pageTitle("Profile") }] }),
   component: Profile,
 });
 

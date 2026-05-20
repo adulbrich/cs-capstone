@@ -240,15 +240,17 @@ body::after {
   mask-image: radial-gradient(circle at 50% 30%, black, transparent 78%);
 }
 
-a {
-  color: var(--brand-primary-dark);
-  text-decoration-color: rgba(184, 50, 7, 0.4);
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-}
+@layer base {
+  a {
+    color: var(--brand-primary-dark);
+    text-decoration-color: rgba(184, 50, 7, 0.4);
+    text-decoration-thickness: 1px;
+    text-underline-offset: 2px;
+  }
 
-a:hover {
-  color: var(--brand-primary);
+  a:hover {
+    color: var(--brand-primary);
+  }
 }
 
 code {

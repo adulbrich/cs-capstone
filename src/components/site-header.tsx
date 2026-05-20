@@ -29,7 +29,7 @@ export function SiteHeader() {
           {signedIn && (
             <>
               <Link to="/my/projects" className="nav-link">
-                My projects
+                My Projects
               </Link>
               <Link to="/my/bookmarks" className="nav-link">
                 Bookmarks

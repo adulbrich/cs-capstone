@@ -1,8 +1,10 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ProjectCard } from "#/components/project-card";
+import { pageTitle } from "#/lib/page-title";
 import { listMyBookmarks } from "#/server/bookmarks";
 
 export const Route = createFileRoute("/_authed/my/bookmarks")({
+  head: () => ({ meta: [{ title: pageTitle("My Bookmarks") }] }),
   loader: async () => listMyBookmarks(),
   component: MyBookmarks,
 });

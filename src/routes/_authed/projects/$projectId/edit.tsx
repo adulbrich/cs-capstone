@@ -1,5 +1,6 @@
 import { createFileRoute, redirect, useNavigate } from "@tanstack/react-router";
 import { ProjectForm } from "#/components/project-form";
+import { pageTitle } from "#/lib/page-title";
 import {
   listProjectCategories,
   setProjectCategories,
@@ -9,6 +10,7 @@ import { getProject } from "#/server/projects-queries";
 import { uploadProjectImage } from "#/server/uploads";
 
 export const Route = createFileRoute("/_authed/projects/$projectId/edit")({
+  head: () => ({ meta: [{ title: pageTitle("Edit Project") }] }),
   loader: async ({ params }) => {
     const data = await getProject({ data: { id: params.projectId } });
     if (!data.project || !data.canEdit) {

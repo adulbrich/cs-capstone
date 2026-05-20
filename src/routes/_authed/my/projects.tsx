@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { ProjectCard } from "#/components/project-card";
 import { Button } from "#/components/ui/button";
+import { pageTitle } from "#/lib/page-title";
 import { listMyProjects } from "#/server/projects-queries";
 
 const STATUSES = [
@@ -20,6 +21,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/_authed/my/projects")({
   validateSearch: searchSchema,
+  head: () => ({ meta: [{ title: pageTitle("My Projects") }] }),
   loaderDeps: ({ search }) => ({ status: search.status }),
   loader: async ({ deps }) => {
     return await listMyProjects({ data: { status: deps.status } });
@@ -33,12 +35,12 @@ function MyProjects() {
   return (
     <div className="mx-auto max-w-3xl p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">My projects</h1>
+        <h1 className="text-2xl font-semibold">My Projects</h1>
         <Button asChild size="sm">
           <Link to="/projects/new">New project</Link>
         </Button>
       </div>
-      <div className="mt-4 flex flex-wrap gap-1 text-sm">
+      <div className="mt-4 flex border-b border-border text-sm">
         {STATUSES.map((s) => (
           <Link
             key={s}
@@ -46,8 +48,8 @@ function MyProjects() {
             search={{ status: s }}
             className={
               s === status
-                ? "border-b-2 px-2 py-1 font-medium"
-                : "px-2 py-1 text-muted-foreground hover:text-foreground"
+                ? "-mb-px border-b-2 px-3 py-1.5 font-medium"
+                : "px-3 py-1.5 text-muted-foreground hover:text-foreground"
             }
             style={
               s === status

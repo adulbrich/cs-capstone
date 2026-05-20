@@ -4,6 +4,13 @@ import { listCategories } from "#/server/categories";
 import { listPrograms } from "#/server/programs";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 import { ViewToggle } from "./view-toggle";
 
 type Category = { id: string; name: string; type: string };
@@ -96,19 +103,22 @@ export function ProjectsFilterBar({ q, categories, program, view }: Props) {
       <div className="mt-3 grid gap-3 md:grid-cols-2">
         <div>
           <Label htmlFor="filter-program">Program</Label>
-          <select
-            id="filter-program"
-            value={program ?? ""}
-            onChange={(e) => setProgram(e.target.value)}
-            className="mt-1 w-full rounded-md border border-border bg-background px-3 py-1.5 text-sm"
+          <Select
+            value={program ?? "_all_"}
+            onValueChange={(v) => setProgram(v === "_all_" ? "" : v)}
           >
-            <option value="">All programs</option>
-            {allPrograms.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.courseId} {p.courseName}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger id="filter-program" className="mt-1 w-full">
+              <SelectValue placeholder="All programs" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="_all_">All programs</SelectItem>
+              {allPrograms.map((p) => (
+                <SelectItem key={p.id} value={p.id}>
+                  {p.courseId} {p.courseName}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 

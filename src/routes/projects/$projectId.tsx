@@ -13,11 +13,21 @@ import { StaffProjectPanel } from "#/components/staff-project-panel";
 import { StatusBadge } from "#/components/status-badge";
 import { StatusTimeline } from "#/components/status-timeline";
 import { Button } from "#/components/ui/button";
+import { pageTitle } from "#/lib/page-title";
 import { getPublicUrl } from "#/lib/storage";
 import { listProjectCategories } from "#/server/categories";
 import { getProject, listProjectComments } from "#/server/projects-queries";
 
 export const Route = createFileRoute("/projects/$projectId")({
+  head: ({ loaderData }) => ({
+    meta: [
+      {
+        title: pageTitle(
+          (loaderData?.project?.title as string | undefined) ?? "Project",
+        ),
+      },
+    ],
+  }),
   loader: async ({ params }) => {
     const data = await getProject({ data: { id: params.projectId } });
     if (!data.project) throw notFound();

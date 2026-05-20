@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { pageTitle } from "#/lib/page-title";
 
 export const Route = createFileRoute("/(auth)/verify-email")({
+  head: () => ({ meta: [{ title: pageTitle("Verify Email") }] }),
   component: VerifyEmail,
 });
 

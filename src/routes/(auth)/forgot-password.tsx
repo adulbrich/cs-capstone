@@ -4,8 +4,10 @@ import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { authClient } from "#/lib/auth-client";
+import { pageTitle } from "#/lib/page-title";
 
 export const Route = createFileRoute("/(auth)/forgot-password")({
+  head: () => ({ meta: [{ title: pageTitle("Forgot Password") }] }),
   component: ForgotPassword,
 });
 

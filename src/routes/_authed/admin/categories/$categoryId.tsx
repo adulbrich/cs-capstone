@@ -4,6 +4,7 @@ import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { getSession } from "#/lib/auth-guards";
+import { pageTitle } from "#/lib/page-title";
 import {
   deleteCategory,
   getCategory,
@@ -12,6 +13,7 @@ import {
 } from "#/server/categories";
 
 export const Route = createFileRoute("/_authed/admin/categories/$categoryId")({
+  head: () => ({ meta: [{ title: pageTitle("Edit Category") }] }),
   beforeLoad: async () => {
     const session = await getSession();
     if (!session?.user) throw redirect({ to: "/sign-in" });

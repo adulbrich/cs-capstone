@@ -7,11 +7,13 @@ import {
 import { BanForm } from "#/components/ban-form";
 import { RoleSelect } from "#/components/role-select";
 import { getSession } from "#/lib/auth-guards";
+import { pageTitle } from "#/lib/page-title";
 import { getUser } from "#/server/users";
 
 type Role = "user" | "instructor" | "admin";
 
 export const Route = createFileRoute("/_authed/admin/users/$userId")({
+  head: () => ({ meta: [{ title: pageTitle("Manage User") }] }),
   beforeLoad: async () => {
     const session = await getSession();
     if (!session?.user) throw redirect({ to: "/sign-in" });

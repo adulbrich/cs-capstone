@@ -5,7 +5,12 @@ import { Button } from "#/components/ui/button";
 import { authClient } from "#/lib/auth-client";
 import { brand } from "#/lib/brand";
 
-export const Route = createFileRoute("/")({ component: Home });
+export const Route = createFileRoute("/")({
+  head: () => ({
+    meta: [{ title: `${brand.institutionName} ${brand.programName}` }],
+  }),
+  component: Home,
+});
 
 function Home() {
   const { data: session } = authClient.useSession();

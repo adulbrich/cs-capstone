@@ -2,6 +2,13 @@ import { useState } from "react";
 import { setUserRole } from "#/server/users";
 import { Button } from "./ui/button";
 import { Label } from "./ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "./ui/select";
 
 type Role = "user" | "instructor" | "admin";
 
@@ -35,16 +42,16 @@ export function RoleSelect({ userId, initialRole, onChanged }: Props) {
     <div className="mt-4">
       <Label htmlFor="role-select">Role</Label>
       <div className="mt-1 flex items-center gap-2">
-        <select
-          id="role-select"
-          value={role}
-          onChange={(e) => setRole(e.target.value as Role)}
-          className="rounded-md border border-border bg-background px-3 py-1.5 text-sm"
-        >
-          <option value="user">user</option>
-          <option value="instructor">instructor</option>
-          <option value="admin">admin</option>
-        </select>
+        <Select value={role} onValueChange={(v) => setRole(v as Role)}>
+          <SelectTrigger id="role-select" size="sm" className="w-36">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="user">user</SelectItem>
+            <SelectItem value="instructor">instructor</SelectItem>
+            <SelectItem value="admin">admin</SelectItem>
+          </SelectContent>
+        </Select>
         <Button
           type="button"
           size="sm"

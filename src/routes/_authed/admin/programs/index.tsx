@@ -9,9 +9,11 @@ import { AdminTable } from "#/components/admin-table";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { getSession } from "#/lib/auth-guards";
+import { pageTitle } from "#/lib/page-title";
 import { createProgram, listPrograms } from "#/server/programs";
 
 export const Route = createFileRoute("/_authed/admin/programs/")({
+  head: () => ({ meta: [{ title: pageTitle("Programs") }] }),
   beforeLoad: async () => {
     const session = await getSession();
     if (!session?.user) throw redirect({ to: "/sign-in" });

@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { z } from "zod";
 import { ProjectListItem } from "#/components/project-list-item";
 import { ProjectsFilterBar } from "#/components/projects-filter-bar";
+import { pageTitle } from "#/lib/page-title";
 import { searchProjects } from "#/server/search";
 
 const searchSchema = z.object({
@@ -14,6 +15,7 @@ const searchSchema = z.object({
 
 export const Route = createFileRoute("/projects/")({
   validateSearch: searchSchema,
+  head: () => ({ meta: [{ title: pageTitle("Projects") }] }),
   loaderDeps: ({ search }) => search,
   loader: async ({ deps }) => {
     return await searchProjects({

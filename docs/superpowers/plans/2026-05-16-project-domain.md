@@ -3194,7 +3194,7 @@ function MyProjects() {
   return (
     <div className="mx-auto max-w-3xl p-8">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">My projects</h1>
+        <h1 className="text-2xl font-semibold">My Projects</h1>
         <Link to="/projects/new" className="bg-black px-3 py-1.5 text-sm text-white">
           New project
         </Link>

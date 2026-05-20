@@ -1,10 +1,12 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { ProjectForm } from "#/components/project-form";
+import { pageTitle } from "#/lib/page-title";
 import { setProjectCategories } from "#/server/categories";
 import { createProject } from "#/server/projects";
 import { uploadProjectImage } from "#/server/uploads";
 
 export const Route = createFileRoute("/_authed/projects/new")({
+  head: () => ({ meta: [{ title: pageTitle("New Project") }] }),
   component: NewProject,
 });
 

@@ -9,10 +9,12 @@ import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import { authClient } from "#/lib/auth-client";
+import { pageTitle } from "#/lib/page-title";
 
 const searchSchema = z.object({ token: z.string().min(1) });
 
 export const Route = createFileRoute("/(auth)/reset-password")({
+  head: () => ({ meta: [{ title: pageTitle("Reset Password") }] }),
   component: ResetPassword,
   validateSearch: searchSchema,
 });

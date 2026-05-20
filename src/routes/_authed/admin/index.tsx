@@ -1,6 +1,8 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { pageTitle } from "#/lib/page-title";
 
 export const Route = createFileRoute("/_authed/admin/")({
+  head: () => ({ meta: [{ title: pageTitle("Admin") }] }),
   component: AdminHome,
 });
 
