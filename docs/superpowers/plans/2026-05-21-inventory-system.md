@@ -1870,15 +1870,17 @@ export const getCart = createServerFn({ method: "GET" })
     return getCartForCurrentUser();
   });
 
+const addToCartSchema = z.object({ itemId: z.string().uuid() });
+
 export const addToCart = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => idOnlySchema.extend({ id: z.string().uuid() }).pick({ id: true }).transform((v) => ({ itemId: v.id })).parse(d))
+  .inputValidator((d: unknown) => addToCartSchema.parse(d))
   .handler(async ({ data }) => {
     const { addToCartForCurrentUser } = await import("./_internal/inventory");
     return addToCartForCurrentUser(data);
   });
 
 export const removeFromCart = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => z.object({ itemId: z.string().uuid() }).parse(d))
+  .inputValidator((d: unknown) => addToCartSchema.parse(d))
   .handler(async ({ data }) => {
     const { removeFromCartForCurrentUser } = await import("./_internal/inventory");
     return removeFromCartForCurrentUser(data);
