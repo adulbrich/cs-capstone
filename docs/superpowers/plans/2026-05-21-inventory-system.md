@@ -1249,7 +1249,7 @@ Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>"
 - [ ] **Step 1: Append** at the bottom of the file:
 
 ```ts
-import { inventoryItemEditLog } from "#/db/schema";
+import { inventoryItemEditLog, inventoryRequestItems } from "#/db/schema";
 
 export type CreateInventoryItemInput = {
   name: string;
@@ -1316,10 +1316,15 @@ export async function updateInventoryItemAs(
     const oldValues: Record<string, unknown> = {};
     const newValues: Record<string, unknown> = {};
     for (const f of EDITABLE_FIELDS) {
-      if ((before as Record<string, unknown>)[f] !== (data as Record<string, unknown>)[f]) {
+      // Match projects.ts: normalize undefined to null on both sides and
+      // compare with JSON.stringify so a wrapper passing `undefined`
+      // for an unset field does not spuriously log a change.
+      const oldVal = (before as Record<string, unknown>)[f] ?? null;
+      const newVal = (data as Record<string, unknown>)[f] ?? null;
+      if (JSON.stringify(oldVal) !== JSON.stringify(newVal)) {
         changed.push(f);
-        oldValues[f] = (before as Record<string, unknown>)[f];
-        newValues[f] = (data as Record<string, unknown>)[f];
+        oldValues[f] = oldVal;
+        newValues[f] = newVal;
       }
     }
     if (changed.length === 0) return fullForStaff(before);
@@ -1369,6 +1374,18 @@ export async function hardDeleteInventoryItemAs(
   }
   if (row.status !== "available" && row.status !== "retired") {
     throw new Error("Hard delete only allowed when status is available or retired");
+  }
+  // Pre-check the RESTRICT FK on inventory_request_items.item_id so the
+  // caller gets a friendly error instead of a raw Postgres 23503.
+  const [historical] = await db
+    .select({ id: inventoryRequestItems.id })
+    .from(inventoryRequestItems)
+    .where(eq(inventoryRequestItems.itemId, data.id))
+    .limit(1);
+  if (historical) {
+    throw new Error(
+      "Cannot hard delete; this item has historical request records. Retire it instead.",
+    );
   }
   await db.delete(inventoryItems).where(eq(inventoryItems.id, data.id));
   return { ok: true as const };
