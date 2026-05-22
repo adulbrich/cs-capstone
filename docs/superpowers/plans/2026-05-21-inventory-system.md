@@ -2704,11 +2704,27 @@ export function deriveDeadlineFlags(row: {
   };
 }
 
-export async function recordOverdueNotificationsAs(viewer: Viewer) {
-  // Idempotent: only fire if a notification of this (type, requester, item)
-  // does not already exist. Called lazily from listMyItemsAs and from the
-  // admin queue read.
+/**
+ * Lazy idempotent insert of overdue notifications. Scoped to a single
+ * owner when {ownerId} is provided so the my-items read path does not
+ * scan every approved line in the system. Batched into a single INSERT
+ * VALUES (...) so even when many lines are overdue we do one round-trip.
+ *
+ * The partial unique index notifications_overdue_unique_idx on
+ * (user_id, type, link) WHERE type IN (the two overdue types) lets
+ * onConflictDoNothing skip duplicates. target + where make the arbiter
+ * explicit so adding another unique index on `notifications` cannot
+ * silently swallow unrelated conflicts.
+ */
+export async function recordOverdueNotificationsAs(
+  viewer: Viewer,
+  opts: { ownerId?: string } = {},
+) {
   if (!viewer) return;
+  const conditions = [eq(inventoryRequestItems.status, "approved")];
+  if (opts.ownerId) {
+    conditions.push(eq(inventoryRequests.userId, opts.ownerId));
+  }
   const rows = await db
     .select({
       itemId: inventoryItems.id,
@@ -2727,35 +2743,38 @@ export async function recordOverdueNotificationsAs(viewer: Viewer) {
       inventoryItems,
       eq(inventoryRequestItems.itemId, inventoryItems.id),
     )
-    .where(eq(inventoryRequestItems.status, "approved"));
+    .where(and(...conditions));
 
+  const values: (typeof notifications.$inferInsert)[] = [];
   for (const r of rows) {
     const { pickupOverdue, checkoutOverdue } = deriveDeadlineFlags(r);
     if (pickupOverdue) {
-      await db
-        .insert(notifications)
-        .values({
-          userId: r.requesterId,
-          type: "inventory_pickup_overdue",
-          title: `Pickup window passed: ${r.itemName}`,
-          message: `Your reserved item is past its pickup window.`,
-          link: `/inventory/${r.itemId}`,
-        })
-        .onConflictDoNothing();
+      values.push({
+        userId: r.requesterId,
+        type: "inventory_pickup_overdue",
+        title: `Pickup window passed: ${r.itemName}`,
+        message: `Your reserved item is past its pickup window.`,
+        link: `/inventory/${r.itemId}`,
+      });
     }
     if (checkoutOverdue) {
-      await db
-        .insert(notifications)
-        .values({
-          userId: r.requesterId,
-          type: "inventory_checkout_overdue",
-          title: `Overdue: ${r.itemName}`,
-          message: `Your checked-out item is past its due date.`,
-          link: `/inventory/${r.itemId}`,
-        })
-        .onConflictDoNothing();
+      values.push({
+        userId: r.requesterId,
+        type: "inventory_checkout_overdue",
+        title: `Overdue: ${r.itemName}`,
+        message: `Your checked-out item is past its due date.`,
+        link: `/inventory/${r.itemId}`,
+      });
     }
   }
+  if (values.length === 0) return;
+  await db
+    .insert(notifications)
+    .values(values)
+    .onConflictDoNothing({
+      target: [notifications.userId, notifications.type, notifications.link],
+      where: sql`type IN ('inventory_pickup_overdue', 'inventory_checkout_overdue')`,
+    });
 }
 ```
 
@@ -2771,7 +2790,16 @@ CREATE UNIQUE INDEX "notifications_overdue_unique_idx"
 
 Apply with `npm run db:migrate`.
 
-- [ ] **Step 3: Hook `recordOverdueNotificationsAs` into the two reads** that should trigger the lazy check. In `listMyItemsAs`, call `await recordOverdueNotificationsAs(viewer);` BEFORE the existing parallel queries. In `listInventoryRequestsAs`, do the same at the top.
+- [ ] **Step 3: Hook the lazy check into `listMyItemsAs` only.** Wrap the call in try/catch so a notification failure cannot 500 the read. The admin queue does NOT trigger it: notifications are for the requester, not staff, and a global scan on every queue read is wasteful.
+
+```ts
+// at the top of listMyItemsAs
+try {
+  await recordOverdueNotificationsAs(viewer, { ownerId: viewer.id });
+} catch {
+  // swallow; degraded notification recording must not 500 the page.
+}
+```
 
 - [ ] **Step 4: Populate `pickupBy` / `dueAt` on listing rows** by left-joining the active line. Replace the body of `listInventoryAs` so the query becomes:
 
@@ -4042,8 +4070,8 @@ describe("past pickup window: lazy detection + idempotent notification", () => {
       requestItemId: line.id,
       pickupBy: new Date(Date.now() - 86400000), // already passed
     });
-    await recordOverdueNotificationsAs(admin);
-    await recordOverdueNotificationsAs(admin); // second read; should NOT duplicate.
+    await recordOverdueNotificationsAs(admin, { ownerId: student.id });
+    await recordOverdueNotificationsAs(admin, { ownerId: student.id }); // second read; should NOT duplicate.
     const notifs = await db
       .select()
       .from(notifications)

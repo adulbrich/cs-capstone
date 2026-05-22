@@ -717,7 +717,12 @@ export async function cancelRequestItemForCurrentUser(data: {
 
 export async function listMyItemsAs(viewer: Viewer) {
   if (!viewer) throw new Error("Sign in required");
-  await recordOverdueNotificationsAs(viewer);
+  // Notifications are a side-effect; never let them block the read.
+  try {
+    await recordOverdueNotificationsAs(viewer, { ownerId: viewer.id });
+  } catch {
+    // swallow; degraded notification recording must not 500 the page.
+  }
   const [cart, active, history] = await Promise.all([
     getCartAs(viewer),
     db
@@ -778,7 +783,9 @@ export async function listInventoryRequestsAs(
   data: { tab: "pending" | "all" },
 ) {
   assertStaff(viewer);
-  await recordOverdueNotificationsAs(viewer);
+  // No lazy overdue trigger here: notifications are for the requester, not
+  // staff, and a global scan on every queue read is wasteful. The notification
+  // fires when the requester reads /my/items.
   const statusFilter =
     data.tab === "pending"
       ? eq(inventoryRequestItems.status, "pending")
@@ -849,6 +856,12 @@ export async function listInventoryRequestsForCurrentUser(data: {
   return listInventoryRequestsAs(viewer, data);
 }
 
+/**
+ * Derive the two deadline flags for a row. `status` is the item-level
+ * status, not the request line's: when a line is `approved` the item is
+ * either `reserved` (pre-pickup) or `checked_out` (post-pickup), and we
+ * key off that distinction to decide which deadline applies.
+ */
 export function deriveDeadlineFlags(row: {
   status: string;
   pickupBy: Date | null;
@@ -867,12 +880,26 @@ export function deriveDeadlineFlags(row: {
   };
 }
 
-export async function recordOverdueNotificationsAs(viewer: Viewer) {
-  // Idempotent: only fire if a notification of this (type, requester, link)
-  // does not already exist (enforced by the partial unique index added in
-  // the migration above). Called lazily from listMyItemsAs and the admin
-  // request queue read.
+/**
+ * Lazy idempotent insert of overdue notifications. Scoped to a single owner
+ * when {ownerId} is provided so the my-items read path does not scan every
+ * approved line in the system.
+ *
+ * Idempotency: the partial unique index `notifications_overdue_unique_idx`
+ * on (user_id, type, link) WHERE type IN (the two overdue types) lets
+ * onConflictDoNothing skip duplicates. The target + where clause make the
+ * arbiter explicit so adding another unique index on `notifications`
+ * cannot silently swallow unrelated conflicts.
+ */
+export async function recordOverdueNotificationsAs(
+  viewer: Viewer,
+  opts: { ownerId?: string } = {},
+) {
   if (!viewer) return;
+  const conditions = [eq(inventoryRequestItems.status, "approved")];
+  if (opts.ownerId) {
+    conditions.push(eq(inventoryRequests.userId, opts.ownerId));
+  }
   const rows = await db
     .select({
       itemId: inventoryItems.id,
@@ -891,33 +918,36 @@ export async function recordOverdueNotificationsAs(viewer: Viewer) {
       inventoryItems,
       eq(inventoryRequestItems.itemId, inventoryItems.id),
     )
-    .where(eq(inventoryRequestItems.status, "approved"));
+    .where(and(...conditions));
 
+  const values: (typeof notifications.$inferInsert)[] = [];
   for (const r of rows) {
     const { pickupOverdue, checkoutOverdue } = deriveDeadlineFlags(r);
     if (pickupOverdue) {
-      await db
-        .insert(notifications)
-        .values({
-          userId: r.requesterId,
-          type: "inventory_pickup_overdue",
-          title: `Pickup window passed: ${r.itemName}`,
-          message: `Your reserved item is past its pickup window.`,
-          link: `/inventory/${r.itemId}`,
-        })
-        .onConflictDoNothing();
+      values.push({
+        userId: r.requesterId,
+        type: "inventory_pickup_overdue",
+        title: `Pickup window passed: ${r.itemName}`,
+        message: `Your reserved item is past its pickup window.`,
+        link: `/inventory/${r.itemId}`,
+      });
     }
     if (checkoutOverdue) {
-      await db
-        .insert(notifications)
-        .values({
-          userId: r.requesterId,
-          type: "inventory_checkout_overdue",
-          title: `Overdue: ${r.itemName}`,
-          message: `Your checked-out item is past its due date.`,
-          link: `/inventory/${r.itemId}`,
-        })
-        .onConflictDoNothing();
+      values.push({
+        userId: r.requesterId,
+        type: "inventory_checkout_overdue",
+        title: `Overdue: ${r.itemName}`,
+        message: `Your checked-out item is past its due date.`,
+        link: `/inventory/${r.itemId}`,
+      });
     }
   }
+  if (values.length === 0) return;
+  await db
+    .insert(notifications)
+    .values(values)
+    .onConflictDoNothing({
+      target: [notifications.userId, notifications.type, notifications.link],
+      where: sql`type IN ('inventory_pickup_overdue', 'inventory_checkout_overdue')`,
+    });
 }
