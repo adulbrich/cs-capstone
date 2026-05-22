@@ -87,8 +87,16 @@ export async function listInventoryAs(viewer: Viewer, data: ListInventoryInput) 
   const offset = (data.page - 1) * data.pageSize;
 
   const rows = await db
-    .select()
+    .select({
+      item: inventoryItems,
+      pickupBy: inventoryRequestItems.pickupBy,
+      dueAt: inventoryRequestItems.dueAt,
+    })
     .from(inventoryItems)
+    .leftJoin(
+      inventoryRequestItems,
+      eq(inventoryItems.currentRequestItemId, inventoryRequestItems.id),
+    )
     .where(where)
     .orderBy(desc(inventoryItems.updatedAt))
     .limit(data.pageSize)
@@ -99,8 +107,13 @@ export async function listInventoryAs(viewer: Viewer, data: ListInventoryInput) 
     .from(inventoryItems)
     .where(where);
 
+  const mapped = rows.map((r) => {
+    const base = isStaff(viewer) ? fullForStaff(r.item) : stripForPublic(r.item);
+    return { ...base, pickupBy: r.pickupBy, dueAt: r.dueAt };
+  });
+
   return {
-    rows: isStaff(viewer) ? rows.map(fullForStaff) : rows.map(stripForPublic),
+    rows: mapped,
     total: count,
     page: data.page,
     pageSize: data.pageSize,
@@ -109,12 +122,21 @@ export async function listInventoryAs(viewer: Viewer, data: ListInventoryInput) 
 
 export async function getInventoryItemAs(viewer: Viewer, data: { id: string }) {
   const [row] = await db
-    .select()
+    .select({
+      item: inventoryItems,
+      pickupBy: inventoryRequestItems.pickupBy,
+      dueAt: inventoryRequestItems.dueAt,
+    })
     .from(inventoryItems)
+    .leftJoin(
+      inventoryRequestItems,
+      eq(inventoryItems.currentRequestItemId, inventoryRequestItems.id),
+    )
     .where(eq(inventoryItems.id, data.id));
   if (!row) return null;
-  if (row.status === "retired" && !isStaff(viewer)) return null;
-  return isStaff(viewer) ? fullForStaff(row) : stripForPublic(row);
+  if (row.item.status === "retired" && !isStaff(viewer)) return null;
+  const base = isStaff(viewer) ? fullForStaff(row.item) : stripForPublic(row.item);
+  return { ...base, pickupBy: row.pickupBy, dueAt: row.dueAt };
 }
 
 export async function listInventoryForCurrentUser(data: ListInventoryInput) {
@@ -695,6 +717,7 @@ export async function cancelRequestItemForCurrentUser(data: {
 
 export async function listMyItemsAs(viewer: Viewer) {
   if (!viewer) throw new Error("Sign in required");
+  await recordOverdueNotificationsAs(viewer);
   const [cart, active, history] = await Promise.all([
     getCartAs(viewer),
     db
@@ -755,6 +778,7 @@ export async function listInventoryRequestsAs(
   data: { tab: "pending" | "all" },
 ) {
   assertStaff(viewer);
+  await recordOverdueNotificationsAs(viewer);
   const statusFilter =
     data.tab === "pending"
       ? eq(inventoryRequestItems.status, "pending")
@@ -823,4 +847,77 @@ export async function listInventoryRequestsForCurrentUser(data: {
 }) {
   const viewer = await requireUser();
   return listInventoryRequestsAs(viewer, data);
+}
+
+export function deriveDeadlineFlags(row: {
+  status: string;
+  pickupBy: Date | null;
+  dueAt: Date | null;
+}) {
+  const now = Date.now();
+  return {
+    pickupOverdue:
+      row.status === "reserved" &&
+      !!row.pickupBy &&
+      row.pickupBy.getTime() < now,
+    checkoutOverdue:
+      row.status === "checked_out" &&
+      !!row.dueAt &&
+      row.dueAt.getTime() < now,
+  };
+}
+
+export async function recordOverdueNotificationsAs(viewer: Viewer) {
+  // Idempotent: only fire if a notification of this (type, requester, link)
+  // does not already exist (enforced by the partial unique index added in
+  // the migration above). Called lazily from listMyItemsAs and the admin
+  // request queue read.
+  if (!viewer) return;
+  const rows = await db
+    .select({
+      itemId: inventoryItems.id,
+      itemName: inventoryItems.name,
+      status: inventoryItems.status,
+      pickupBy: inventoryRequestItems.pickupBy,
+      dueAt: inventoryRequestItems.dueAt,
+      requesterId: inventoryRequests.userId,
+    })
+    .from(inventoryRequestItems)
+    .innerJoin(
+      inventoryRequests,
+      eq(inventoryRequestItems.requestId, inventoryRequests.id),
+    )
+    .innerJoin(
+      inventoryItems,
+      eq(inventoryRequestItems.itemId, inventoryItems.id),
+    )
+    .where(eq(inventoryRequestItems.status, "approved"));
+
+  for (const r of rows) {
+    const { pickupOverdue, checkoutOverdue } = deriveDeadlineFlags(r);
+    if (pickupOverdue) {
+      await db
+        .insert(notifications)
+        .values({
+          userId: r.requesterId,
+          type: "inventory_pickup_overdue",
+          title: `Pickup window passed: ${r.itemName}`,
+          message: `Your reserved item is past its pickup window.`,
+          link: `/inventory/${r.itemId}`,
+        })
+        .onConflictDoNothing();
+    }
+    if (checkoutOverdue) {
+      await db
+        .insert(notifications)
+        .values({
+          userId: r.requesterId,
+          type: "inventory_checkout_overdue",
+          title: `Overdue: ${r.itemName}`,
+          message: `Your checked-out item is past its due date.`,
+          link: `/inventory/${r.itemId}`,
+        })
+        .onConflictDoNothing();
+    }
+  }
 }
