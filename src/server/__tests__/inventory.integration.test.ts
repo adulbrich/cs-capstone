@@ -14,10 +14,13 @@ import {
 import { auth } from "#/lib/auth";
 import {
   addToCartAs,
+  approveRequestItemAs,
+  cancelRequestItemAs,
   createInventoryItemAs,
   getInventoryItemAs,
   hardDeleteInventoryItemAs,
   listInventoryAs,
+  rejectRequestItemAs,
   submitCartAs,
   updateInventoryItemAs,
 } from "#/server/_internal/inventory";
@@ -525,5 +528,121 @@ describe("cart", () => {
       .from(inventoryCartItems)
       .where(eq(inventoryCartItems.userId, student.id));
     expect(cartLeft).toHaveLength(0);
+  });
+});
+
+describe("request lifecycle", () => {
+  it("approve moves item to reserved + line to approved + notifies", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const student = await makeUser(`s-${Date.now()}@x.com`, "user");
+    const item = await makeItem({ name: "Scope" });
+    await addToCartAs(student, { itemId: item.id });
+    await submitCartAs(student, { note: null });
+    const [line] = await db
+      .select()
+      .from(inventoryRequestItems)
+      .where(eq(inventoryRequestItems.itemId, item.id));
+    await approveRequestItemAs(admin, {
+      requestItemId: line.id,
+      pickupBy: null,
+    });
+    const [after] = await db
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, item.id));
+    expect(after.status).toBe("reserved");
+    const [reqLine] = await db
+      .select()
+      .from(inventoryRequestItems)
+      .where(eq(inventoryRequestItems.id, line.id));
+    expect(reqLine.status).toBe("approved");
+    expect(reqLine.pickupBy).not.toBeNull();
+    const notifs = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, student.id));
+    expect(
+      notifs.some((n) => n.type === "inventory_request_approved"),
+    ).toBe(true);
+  });
+
+  it("reject requires reason and returns item to available", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const student = await makeUser(`s-${Date.now()}@x.com`, "user");
+    const item = await makeItem();
+    await addToCartAs(student, { itemId: item.id });
+    await submitCartAs(student, { note: null });
+    const [line] = await db
+      .select()
+      .from(inventoryRequestItems)
+      .where(eq(inventoryRequestItems.itemId, item.id));
+    await expect(
+      rejectRequestItemAs(admin, {
+        requestItemId: line.id,
+        reviewComment: "",
+      }),
+    ).rejects.toThrow(/required/);
+    await rejectRequestItemAs(admin, {
+      requestItemId: line.id,
+      reviewComment: "Reserved for class",
+    });
+    const [after] = await db
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, item.id));
+    expect(after.status).toBe("available");
+    expect(after.currentHolderId).toBeNull();
+    const [afterLine] = await db
+      .select()
+      .from(inventoryRequestItems)
+      .where(eq(inventoryRequestItems.id, line.id));
+    expect(afterLine.status).toBe("rejected");
+    expect(afterLine.reviewComment).toBe("Reserved for class");
+  });
+
+  it("cancel works while pending or reserved, blocked after checkout", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const student = await makeUser(`s-${Date.now()}@x.com`, "user");
+    const a = await makeItem();
+    const b = await makeItem();
+    await addToCartAs(student, { itemId: a.id });
+    await addToCartAs(student, { itemId: b.id });
+    await submitCartAs(student, { note: null });
+    const [lineA] = await db
+      .select()
+      .from(inventoryRequestItems)
+      .where(eq(inventoryRequestItems.itemId, a.id));
+    const [lineB] = await db
+      .select()
+      .from(inventoryRequestItems)
+      .where(eq(inventoryRequestItems.itemId, b.id));
+    // Cancel pending line A.
+    await cancelRequestItemAs(student, {
+      requestItemId: lineA.id,
+      note: "no longer needed",
+    });
+    const [afterA] = await db
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, a.id));
+    expect(afterA.status).toBe("available");
+    // Approve B then check out, then attempt to cancel.
+    await approveRequestItemAs(admin, {
+      requestItemId: lineB.id,
+      pickupBy: null,
+    });
+    await transitionItem(admin, {
+      itemId: b.id,
+      nextStatus: "checked_out",
+      requestItemId: lineB.id,
+      holderId: student.id,
+      dueAt: new Date(Date.now() + 7 * 86400000),
+    });
+    await expect(
+      cancelRequestItemAs(student, {
+        requestItemId: lineB.id,
+        note: null,
+      }),
+    ).rejects.toThrow(/checkout/);
   });
 });
