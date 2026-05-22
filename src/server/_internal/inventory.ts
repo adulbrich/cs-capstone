@@ -1,6 +1,13 @@
 import { and, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
 import { db } from "#/db";
-import { inventoryItemEditLog, inventoryItems, inventoryRequestItems } from "#/db/schema";
+import {
+  inventoryCartItems,
+  inventoryItemEditLog,
+  inventoryItemStatusHistory,
+  inventoryItems,
+  inventoryRequestItems,
+  inventoryRequests,
+} from "#/db/schema";
 import { readSession, requireUser } from "#/lib/_internal/auth-guards";
 
 type Viewer = { id: string; role?: string | null | undefined } | null;
@@ -278,4 +285,170 @@ export async function hardDeleteInventoryItemForCurrentUser(data: {
 }) {
   const viewer = await requireUser();
   return hardDeleteInventoryItemAs(viewer, data);
+}
+
+export async function getCartAs(viewer: Viewer) {
+  if (!viewer) throw new Error("Sign in required");
+  const rows = await db
+    .select({
+      itemId: inventoryCartItems.itemId,
+      addedAt: inventoryCartItems.addedAt,
+      name: inventoryItems.name,
+      imageUrl: inventoryItems.imageUrl,
+      status: inventoryItems.status,
+    })
+    .from(inventoryCartItems)
+    .innerJoin(
+      inventoryItems,
+      eq(inventoryCartItems.itemId, inventoryItems.id),
+    )
+    .where(eq(inventoryCartItems.userId, viewer.id))
+    .orderBy(desc(inventoryCartItems.addedAt));
+  return rows;
+}
+
+export async function addToCartAs(viewer: Viewer, data: { itemId: string }) {
+  if (!viewer) throw new Error("Sign in required");
+  const [item] = await db
+    .select()
+    .from(inventoryItems)
+    .where(eq(inventoryItems.id, data.itemId));
+  if (!item) throw new Error("Item not found");
+  if (item.status !== "available") {
+    throw new Error("Only available items can be added to the cart");
+  }
+  await db
+    .insert(inventoryCartItems)
+    .values({ userId: viewer.id, itemId: data.itemId })
+    .onConflictDoNothing();
+  return { ok: true as const };
+}
+
+export async function removeFromCartAs(
+  viewer: Viewer,
+  data: { itemId: string },
+) {
+  if (!viewer) throw new Error("Sign in required");
+  await db
+    .delete(inventoryCartItems)
+    .where(
+      and(
+        eq(inventoryCartItems.userId, viewer.id),
+        eq(inventoryCartItems.itemId, data.itemId),
+      ),
+    );
+  return { ok: true as const };
+}
+
+export async function submitCartAs(
+  viewer: Viewer,
+  data: { note: string | null },
+) {
+  if (!viewer) throw new Error("Sign in required");
+
+  return db.transaction(async (tx) => {
+    const cartRows = await tx
+      .select({
+        itemId: inventoryCartItems.itemId,
+        status: inventoryItems.status,
+        name: inventoryItems.name,
+      })
+      .from(inventoryCartItems)
+      .innerJoin(
+        inventoryItems,
+        eq(inventoryCartItems.itemId, inventoryItems.id),
+      )
+      .where(eq(inventoryCartItems.userId, viewer.id));
+
+    if (cartRows.length === 0) {
+      throw new Error("Cart is empty");
+    }
+
+    const available = cartRows.filter((r) => r.status === "available");
+    const skipped = cartRows
+      .filter((r) => r.status !== "available")
+      .map((r) => ({ itemId: r.itemId, reason: "no_longer_available" as const }));
+
+    if (available.length === 0) {
+      // Clean up the cart and report all as skipped.
+      await tx
+        .delete(inventoryCartItems)
+        .where(eq(inventoryCartItems.userId, viewer.id));
+      return { requestId: null, submitted: [], skipped };
+    }
+
+    const [req] = await tx
+      .insert(inventoryRequests)
+      .values({ userId: viewer.id, note: data.note })
+      .returning();
+
+    const lines = await tx
+      .insert(inventoryRequestItems)
+      .values(
+        available.map((r) => ({
+          requestId: req.id,
+          itemId: r.itemId,
+          status: "pending" as const,
+        })),
+      )
+      .returning();
+
+    await tx
+      .delete(inventoryCartItems)
+      .where(eq(inventoryCartItems.userId, viewer.id));
+
+    // transitionItem requires staff; do the requested transition inline here
+    // (we are inside the same transaction so atomicity is preserved).
+    for (const line of lines) {
+      const [current] = await tx
+        .select()
+        .from(inventoryItems)
+        .where(eq(inventoryItems.id, line.itemId))
+        .for("update");
+      await tx
+        .update(inventoryItems)
+        .set({
+          status: "requested",
+          currentHolderId: viewer.id,
+          currentHolderLabel: null,
+          currentRequestItemId: line.id,
+          updatedAt: new Date(),
+        })
+        .where(eq(inventoryItems.id, line.itemId));
+      await tx.insert(inventoryItemStatusHistory).values({
+        itemId: line.itemId,
+        oldStatus: current.status,
+        newStatus: "requested",
+        changedBy: viewer.id,
+        requestItemId: line.id,
+        holderId: viewer.id,
+      });
+    }
+
+    return {
+      requestId: req.id,
+      submitted: lines.map((l) => l.itemId),
+      skipped,
+    };
+  });
+}
+
+export async function getCartForCurrentUser() {
+  const viewer = await requireUser();
+  return getCartAs(viewer);
+}
+
+export async function addToCartForCurrentUser(data: { itemId: string }) {
+  const viewer = await requireUser();
+  return addToCartAs(viewer, data);
+}
+
+export async function removeFromCartForCurrentUser(data: { itemId: string }) {
+  const viewer = await requireUser();
+  return removeFromCartAs(viewer, data);
+}
+
+export async function submitCartForCurrentUser(data: { note: string | null }) {
+  const viewer = await requireUser();
+  return submitCartAs(viewer, data);
 }
