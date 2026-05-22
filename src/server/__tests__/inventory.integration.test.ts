@@ -10,6 +10,10 @@ import {
   user,
 } from "#/db/schema";
 import { auth } from "#/lib/auth";
+import {
+  getInventoryItemAs,
+  listInventoryAs,
+} from "#/server/_internal/inventory";
 import { transitionItem } from "#/server/_internal/inventory-transitions";
 
 async function makeUser(
@@ -280,5 +284,68 @@ describe("transitionItem", () => {
         holderId: student.id,
       }),
     ).rejects.toThrow(/Cannot move item to requested/);
+  });
+});
+
+describe("listInventoryAs privacy", () => {
+  it("strips holder + notes + serial for anonymous viewer", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const student = await makeUser(`s-${Date.now()}@x.com`, "user");
+    const item = await makeItem({
+      notes: "internal note",
+      serial: "SN-001",
+    });
+    const { line } = await makeRequestLine(student.id, item.id);
+    await transitionItem(admin, {
+      itemId: item.id,
+      nextStatus: "reserved",
+      requestItemId: line.id,
+      holderId: student.id,
+      pickupBy: new Date(Date.now() + 86400000),
+    });
+    const result = await listInventoryAs(null, {
+      q: "",
+      status: null,
+      category: null,
+      page: 1,
+      pageSize: 50,
+    });
+    const found = result.rows.find((r) => r.id === item.id)!;
+    expect(found).toBeDefined();
+    expect("notes" in found).toBe(false);
+    expect("serial" in found).toBe(false);
+    expect("currentHolderId" in found).toBe(false);
+  });
+
+  it("includes notes + holder for staff viewer", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const item = await makeItem({ notes: "internal" });
+    const result = await listInventoryAs(admin, {
+      q: "",
+      status: null,
+      category: null,
+      page: 1,
+      pageSize: 50,
+    });
+    const found = result.rows.find((r) => r.id === item.id);
+    expect((found as { notes: string }).notes).toBe("internal");
+  });
+
+  it("hides retired items from non-staff list and detail", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const item = await makeItem();
+    await transitionItem(admin, { itemId: item.id, nextStatus: "retired" });
+    const anonList = await listInventoryAs(null, {
+      q: "",
+      status: null,
+      category: null,
+      page: 1,
+      pageSize: 50,
+    });
+    expect(anonList.rows.some((r) => r.id === item.id)).toBe(false);
+    const anonDetail = await getInventoryItemAs(null, { id: item.id });
+    expect(anonDetail).toBeNull();
+    const staffDetail = await getInventoryItemAs(admin, { id: item.id });
+    expect(staffDetail?.status).toBe("retired");
   });
 });
