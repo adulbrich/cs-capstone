@@ -2770,7 +2770,7 @@ export function InventoryCard({ item, signedIn, onAddToCart }: Props) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <Link to="/inventory/$itemId" params={{ itemId: item.id }} className="block">
-        <div className="aspect-video w-full overflow-hidden rounded bg-[var(--surface-sunken)]">
+        <div className="aspect-video w-full overflow-hidden rounded bg-(--surface-sunken)">
           {img ? (
             <img src={img} alt="" className="h-full w-full object-cover" />
           ) : null}
@@ -3160,7 +3160,7 @@ function ItemDetail() {
   return (
     <div className="mx-auto max-w-4xl px-4 py-6 md:p-8">
       <div className="grid gap-6 md:grid-cols-[1fr_1fr]">
-        <div className="overflow-hidden rounded-lg bg-[var(--surface-sunken)]">
+        <div className="overflow-hidden rounded-lg bg-(--surface-sunken)">
           {img ? (
             <img src={img} alt="" className="h-full w-full object-cover" />
           ) : null}
@@ -3619,7 +3619,7 @@ export function UserMenu({ user }: Props) {
             referrerPolicy="no-referrer"
           />
         ) : (
-          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-[var(--surface-sunken)] text-xs font-medium">
+          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-(--surface-sunken) text-xs font-medium">
             {(user.name ?? user.email).charAt(0).toUpperCase()}
           </div>
         )}
