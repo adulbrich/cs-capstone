@@ -946,7 +946,10 @@ EOF
 import { and, desc, eq, ilike, ne, or, sql } from "drizzle-orm";
 import { db } from "#/db";
 import { inventoryItems } from "#/db/schema";
-import { requireUser } from "#/lib/_internal/auth-guards";
+
+// Note: requireUser is dynamic-imported in the *ForCurrentUser helpers added
+// in Phase 3 (when the first writer arrives). Keeping that import lazy avoids
+// a noUnusedLocals lint here in the read-only phase.
 
 type Viewer = { id: string; role?: string | null | undefined } | null;
 
