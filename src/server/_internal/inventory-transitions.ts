@@ -92,11 +92,30 @@ function validateInvariants(input: TransitionInput) {
  * Does NOT enforce ordering between statuses ("recommended lifecycle" is a
  * UI concern). DOES enforce role and data invariants.
  */
-export async function transitionItem(viewer: Viewer, input: TransitionInput) {
+export async function transitionItem(
+  viewer: Viewer,
+  input: TransitionInput,
+  externalTx?: Tx,
+) {
   assertStaff(viewer);
   validateInvariants(input);
 
-  return db.transaction(async (tx) => {
+  // If the caller already has an open transaction (e.g. approveRequestItemAs
+  // locks the request line before calling here), reuse it instead of opening
+  // a fresh one. Drizzle's nested db.transaction would otherwise run on a
+  // separate connection and break atomicity.
+  if (externalTx) {
+    return transitionItemInTx(externalTx, viewer, input);
+  }
+  return db.transaction(async (tx) => transitionItemInTx(tx, viewer, input));
+}
+
+async function transitionItemInTx(
+  tx: Tx,
+  viewer: Viewer,
+  input: TransitionInput,
+) {
+  {
     const [current] = await tx
       .select()
       .from(inventoryItems)
@@ -150,7 +169,7 @@ export async function transitionItem(viewer: Viewer, input: TransitionInput) {
     }
 
     await maybeNotify(tx, current, input);
-  });
+  }
 }
 
 async function syncRequestItem(tx: Tx, input: TransitionInput) {

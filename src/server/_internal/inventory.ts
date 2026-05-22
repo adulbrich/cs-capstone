@@ -478,39 +478,51 @@ export async function approveRequestItemAs(
 ) {
   assertStaff(viewer);
   const { transitionItem } = await import("./inventory-transitions");
-  const [line] = await db
-    .select({
-      id: inventoryRequestItems.id,
-      itemId: inventoryRequestItems.itemId,
-      requesterId: inventoryRequests.userId,
-      status: inventoryRequestItems.status,
-    })
-    .from(inventoryRequestItems)
-    .innerJoin(
-      inventoryRequests,
-      eq(inventoryRequestItems.requestId, inventoryRequests.id),
-    )
-    .where(eq(inventoryRequestItems.id, data.requestItemId));
-  if (!line) throw new Error("Request line not found");
-  if (line.status !== "pending") {
-    throw new Error("Only pending lines can be approved");
-  }
-  await db
-    .update(inventoryRequestItems)
-    .set({
-      reviewedBy: viewer!.id,
-      reviewedAt: new Date(),
-      updatedAt: new Date(),
-    })
-    .where(eq(inventoryRequestItems.id, data.requestItemId));
-  await transitionItem(viewer!, {
-    itemId: line.itemId,
-    nextStatus: "reserved",
-    requestItemId: line.id,
-    holderId: line.requesterId,
-    pickupBy: data.pickupBy ?? defaultPickupBy(),
+  return db.transaction(async (tx) => {
+    // Lock the line before reading and updating it so a concurrent cancel
+    // cannot move it out of 'pending' between this read and the transition.
+    const [line] = await tx
+      .select({
+        id: inventoryRequestItems.id,
+        itemId: inventoryRequestItems.itemId,
+        requesterId: inventoryRequests.userId,
+        status: inventoryRequestItems.status,
+      })
+      .from(inventoryRequestItems)
+      .innerJoin(
+        inventoryRequests,
+        eq(inventoryRequestItems.requestId, inventoryRequests.id),
+      )
+      .where(eq(inventoryRequestItems.id, data.requestItemId))
+      .for("update");
+    if (!line) throw new Error("Request line not found");
+    if (line.status !== "pending") {
+      throw new Error("Only pending lines can be approved");
+    }
+    await tx
+      .update(inventoryRequestItems)
+      .set({
+        reviewedBy: viewer!.id,
+        reviewedAt: new Date(),
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryRequestItems.id, data.requestItemId));
+    // Pass the open transaction so transitionItem joins the same atomic
+    // unit; syncRequestItem will flip the line to 'approved' under the
+    // same lock we already hold.
+    await transitionItem(
+      viewer!,
+      {
+        itemId: line.itemId,
+        nextStatus: "reserved",
+        requestItemId: line.id,
+        holderId: line.requesterId,
+        pickupBy: data.pickupBy ?? defaultPickupBy(),
+      },
+      tx,
+    );
+    return { ok: true as const };
   });
-  return { ok: true as const };
 }
 
 export async function rejectRequestItemAs(
@@ -522,9 +534,20 @@ export async function rejectRequestItemAs(
     throw new Error("Reject reason required");
   }
   return db.transaction(async (tx) => {
+    // Join requester id into the initial line read so we do not need a
+    // second SELECT just to find the notification recipient.
     const [line] = await tx
-      .select()
+      .select({
+        id: inventoryRequestItems.id,
+        itemId: inventoryRequestItems.itemId,
+        status: inventoryRequestItems.status,
+        requesterId: inventoryRequests.userId,
+      })
       .from(inventoryRequestItems)
+      .innerJoin(
+        inventoryRequests,
+        eq(inventoryRequestItems.requestId, inventoryRequests.id),
+      )
       .where(eq(inventoryRequestItems.id, data.requestItemId))
       .for("update");
     if (!line) throw new Error("Request line not found");
@@ -567,13 +590,8 @@ export async function rejectRequestItemAs(
       comment: data.reviewComment,
       requestItemId: line.id,
     });
-    // Notify requester.
-    const [{ userId: requesterId }] = await tx
-      .select({ userId: inventoryRequests.userId })
-      .from(inventoryRequests)
-      .where(eq(inventoryRequests.id, line.requestId));
     await tx.insert(notifications).values({
-      userId: requesterId,
+      userId: line.requesterId,
       type: "inventory_request_rejected",
       title: `Request denied: ${item.name}`,
       message: data.reviewComment,
