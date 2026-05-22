@@ -115,61 +115,59 @@ async function transitionItemInTx(
   viewer: Viewer,
   input: TransitionInput,
 ) {
-  {
-    const [current] = await tx
-      .select()
-      .from(inventoryItems)
-      .where(eq(inventoryItems.id, input.itemId))
-      .for("update");
+  const [current] = await tx
+    .select()
+    .from(inventoryItems)
+    .where(eq(inventoryItems.id, input.itemId))
+    .for("update");
 
-    if (!current) throw new Error("Item not found");
+  if (!current) throw new Error("Item not found");
 
-    // Guard: a fresh request can only attach to an item that is currently
-    // free. Without this, callers could orphan an existing pending line by
-    // overwriting current_request_item_id silently.
-    if (input.nextStatus === "requested" && current.status !== "available") {
-      throw new Error(
-        `Cannot move item to requested from ${current.status}; release the existing hold first`,
-      );
-    }
-
-    await tx
-      .update(inventoryItems)
-      .set({
-        status: input.nextStatus,
-        currentHolderId: input.holderId ?? null,
-        currentHolderLabel: input.holderLabel ?? null,
-        currentRequestItemId: input.requestItemId ?? null,
-        updatedAt: new Date(),
-      })
-      .where(eq(inventoryItems.id, input.itemId));
-
-    await tx.insert(inventoryItemStatusHistory).values({
-      itemId: input.itemId,
-      oldStatus: current.status,
-      newStatus: input.nextStatus,
-      changedBy: viewer.id,
-      comment: input.comment ?? null,
-      requestItemId: input.requestItemId ?? null,
-      holderId: input.holderId ?? null,
-      holderLabel: input.holderLabel ?? null,
-    });
-
-    if (input.requestItemId) {
-      await syncRequestItem(tx, input);
-    } else if (current.currentRequestItemId) {
-      // Item is leaving a hold context; close the line.
-      await closeRequestItemOnRelease(
-        tx,
-        current.currentRequestItemId,
-        viewer.id,
-        current.status,
-        input.comment ?? null,
-      );
-    }
-
-    await maybeNotify(tx, current, input);
+  // Guard: a fresh request can only attach to an item that is currently
+  // free. Without this, callers could orphan an existing pending line by
+  // overwriting current_request_item_id silently.
+  if (input.nextStatus === "requested" && current.status !== "available") {
+    throw new Error(
+      `Cannot move item to requested from ${current.status}; release the existing hold first`,
+    );
   }
+
+  await tx
+    .update(inventoryItems)
+    .set({
+      status: input.nextStatus,
+      currentHolderId: input.holderId ?? null,
+      currentHolderLabel: input.holderLabel ?? null,
+      currentRequestItemId: input.requestItemId ?? null,
+      updatedAt: new Date(),
+    })
+    .where(eq(inventoryItems.id, input.itemId));
+
+  await tx.insert(inventoryItemStatusHistory).values({
+    itemId: input.itemId,
+    oldStatus: current.status,
+    newStatus: input.nextStatus,
+    changedBy: viewer.id,
+    comment: input.comment ?? null,
+    requestItemId: input.requestItemId ?? null,
+    holderId: input.holderId ?? null,
+    holderLabel: input.holderLabel ?? null,
+  });
+
+  if (input.requestItemId) {
+    await syncRequestItem(tx, input);
+  } else if (current.currentRequestItemId) {
+    // Item is leaving a hold context; close the line.
+    await closeRequestItemOnRelease(
+      tx,
+      current.currentRequestItemId,
+      viewer.id,
+      current.status,
+      input.comment ?? null,
+    );
+  }
+
+  await maybeNotify(tx, current, input);
 }
 
 async function syncRequestItem(tx: Tx, input: TransitionInput) {
