@@ -7,6 +7,7 @@ import {
   inventoryItems,
   inventoryRequestItems,
   inventoryRequests,
+  notifications,
 } from "#/db/schema";
 import { readSession, requireUser } from "#/lib/_internal/auth-guards";
 
@@ -463,4 +464,212 @@ export async function removeFromCartForCurrentUser(data: { itemId: string }) {
 export async function submitCartForCurrentUser(data: { note: string | null }) {
   const viewer = await requireUser();
   return submitCartAs(viewer, data);
+}
+
+const DEFAULT_PICKUP_DAYS = 7;
+
+function defaultPickupBy(): Date {
+  return new Date(Date.now() + DEFAULT_PICKUP_DAYS * 86400000);
+}
+
+export async function approveRequestItemAs(
+  viewer: Viewer,
+  data: { requestItemId: string; pickupBy: Date | null },
+) {
+  assertStaff(viewer);
+  const { transitionItem } = await import("./inventory-transitions");
+  const [line] = await db
+    .select({
+      id: inventoryRequestItems.id,
+      itemId: inventoryRequestItems.itemId,
+      requesterId: inventoryRequests.userId,
+      status: inventoryRequestItems.status,
+    })
+    .from(inventoryRequestItems)
+    .innerJoin(
+      inventoryRequests,
+      eq(inventoryRequestItems.requestId, inventoryRequests.id),
+    )
+    .where(eq(inventoryRequestItems.id, data.requestItemId));
+  if (!line) throw new Error("Request line not found");
+  if (line.status !== "pending") {
+    throw new Error("Only pending lines can be approved");
+  }
+  await db
+    .update(inventoryRequestItems)
+    .set({
+      reviewedBy: viewer!.id,
+      reviewedAt: new Date(),
+      updatedAt: new Date(),
+    })
+    .where(eq(inventoryRequestItems.id, data.requestItemId));
+  await transitionItem(viewer!, {
+    itemId: line.itemId,
+    nextStatus: "reserved",
+    requestItemId: line.id,
+    holderId: line.requesterId,
+    pickupBy: data.pickupBy ?? defaultPickupBy(),
+  });
+  return { ok: true as const };
+}
+
+export async function rejectRequestItemAs(
+  viewer: Viewer,
+  data: { requestItemId: string; reviewComment: string },
+) {
+  assertStaff(viewer);
+  if (!data.reviewComment.trim()) {
+    throw new Error("Reject reason required");
+  }
+  return db.transaction(async (tx) => {
+    const [line] = await tx
+      .select()
+      .from(inventoryRequestItems)
+      .where(eq(inventoryRequestItems.id, data.requestItemId))
+      .for("update");
+    if (!line) throw new Error("Request line not found");
+    if (line.status !== "pending") {
+      throw new Error("Only pending lines can be rejected");
+    }
+    const [item] = await tx
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, line.itemId))
+      .for("update");
+    await tx
+      .update(inventoryRequestItems)
+      .set({
+        status: "rejected",
+        reviewedBy: viewer!.id,
+        reviewedAt: new Date(),
+        reviewComment: data.reviewComment,
+        closedAt: new Date(),
+        closedBy: viewer!.id,
+        closedReason: data.reviewComment,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryRequestItems.id, data.requestItemId));
+    await tx
+      .update(inventoryItems)
+      .set({
+        status: "available",
+        currentHolderId: null,
+        currentHolderLabel: null,
+        currentRequestItemId: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryItems.id, line.itemId));
+    await tx.insert(inventoryItemStatusHistory).values({
+      itemId: line.itemId,
+      oldStatus: item.status,
+      newStatus: "available",
+      changedBy: viewer!.id,
+      comment: data.reviewComment,
+      requestItemId: line.id,
+    });
+    // Notify requester.
+    const [{ userId: requesterId }] = await tx
+      .select({ userId: inventoryRequests.userId })
+      .from(inventoryRequests)
+      .where(eq(inventoryRequests.id, line.requestId));
+    await tx.insert(notifications).values({
+      userId: requesterId,
+      type: "inventory_request_rejected",
+      title: `Request denied: ${item.name}`,
+      message: data.reviewComment,
+      link: `/my/items?tab=history`,
+    });
+    return { ok: true as const };
+  });
+}
+
+export async function cancelRequestItemAs(
+  viewer: Viewer,
+  data: { requestItemId: string; note: string | null },
+) {
+  if (!viewer) throw new Error("Sign in required");
+  return db.transaction(async (tx) => {
+    const [line] = await tx
+      .select({
+        id: inventoryRequestItems.id,
+        itemId: inventoryRequestItems.itemId,
+        status: inventoryRequestItems.status,
+        requesterId: inventoryRequests.userId,
+      })
+      .from(inventoryRequestItems)
+      .innerJoin(
+        inventoryRequests,
+        eq(inventoryRequestItems.requestId, inventoryRequests.id),
+      )
+      .where(eq(inventoryRequestItems.id, data.requestItemId))
+      .for("update");
+    if (!line) throw new Error("Request line not found");
+    if (line.requesterId !== viewer.id) {
+      throw new Error("Only the requester can cancel");
+    }
+    if (line.status !== "pending" && line.status !== "approved") {
+      throw new Error("Line is not in a cancellable state");
+    }
+    const [item] = await tx
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, line.itemId))
+      .for("update");
+    if (item.status === "checked_out") {
+      throw new Error("Cannot cancel after checkout");
+    }
+    await tx
+      .update(inventoryRequestItems)
+      .set({
+        status: "cancelled",
+        closedAt: new Date(),
+        closedBy: viewer.id,
+        closedReason: data.note,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryRequestItems.id, line.id));
+    await tx
+      .update(inventoryItems)
+      .set({
+        status: "available",
+        currentHolderId: null,
+        currentHolderLabel: null,
+        currentRequestItemId: null,
+        updatedAt: new Date(),
+      })
+      .where(eq(inventoryItems.id, line.itemId));
+    await tx.insert(inventoryItemStatusHistory).values({
+      itemId: line.itemId,
+      oldStatus: item.status,
+      newStatus: "available",
+      changedBy: viewer.id,
+      comment: data.note,
+      requestItemId: line.id,
+    });
+    return { ok: true as const };
+  });
+}
+
+export async function approveRequestItemForCurrentUser(data: {
+  requestItemId: string;
+  pickupBy: Date | null;
+}) {
+  const viewer = await requireUser();
+  return approveRequestItemAs(viewer, data);
+}
+
+export async function rejectRequestItemForCurrentUser(data: {
+  requestItemId: string;
+  reviewComment: string;
+}) {
+  const viewer = await requireUser();
+  return rejectRequestItemAs(viewer, data);
+}
+
+export async function cancelRequestItemForCurrentUser(data: {
+  requestItemId: string;
+  note: string | null;
+}) {
+  const viewer = await requireUser();
+  return cancelRequestItemAs(viewer, data);
 }
