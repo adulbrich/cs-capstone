@@ -418,6 +418,15 @@ export async function transitionItem(viewer: Viewer, input: TransitionInput) {
 
     if (!current) throw new Error("Item not found");
 
+    // Guard: a fresh request can only attach to an item that is currently
+    // free. Without this, callers could orphan an existing pending line by
+    // overwriting current_request_item_id silently.
+    if (input.nextStatus === "requested" && current.status !== "available") {
+      throw new Error(
+        `Cannot move item to requested from ${current.status}; release the existing hold first`,
+      );
+    }
+
     await tx
       .update(inventoryItems)
       .set({
@@ -443,12 +452,13 @@ export async function transitionItem(viewer: Viewer, input: TransitionInput) {
     if (input.requestItemId) {
       await syncRequestItem(tx, input);
     } else if (current.currentRequestItemId) {
-      // Item is leaving a hold context; close the line.
+      // Item is leaving a hold context; close the line based on whether it
+      // was actually fulfilled (returned) or released early (cancelled).
       await closeRequestItemOnRelease(
         tx,
         current.currentRequestItemId,
         viewer.id,
-        input.nextStatus,
+        current.status,
         input.comment ?? null,
       );
     }
@@ -488,13 +498,12 @@ async function closeRequestItemOnRelease(
   tx: Tx,
   requestItemId: string,
   actorId: string,
-  nextStatus: ItemStatus,
+  prevStatus: ItemStatus,
   comment: string | null,
 ) {
-  const lineStatus =
-    nextStatus === "available" || nextStatus === "maintenance"
-      ? "returned"
-      : "cancelled";
+  // Fulfillment ended in the user's hands then came back: returned.
+  // Otherwise (reserved abandoned, sent to maintenance/retired before pickup): cancelled.
+  const lineStatus = prevStatus === "checked_out" ? "returned" : "cancelled";
   await tx
     .update(inventoryRequestItems)
     .set({
@@ -509,28 +518,33 @@ async function closeRequestItemOnRelease(
 
 async function maybeNotify(
   tx: Tx,
-  prev: { id: string; name: string; status: ItemStatus; currentHolderId: string | null },
+  prev: { id: string; name: string; status: ItemStatus; currentHolderId: string | null; currentRequestItemId: string | null },
   input: TransitionInput,
 ) {
-  // Only notify a real user; ad-hoc labels do not receive notifications.
+  // Identify a "release-from-hold" path: no new request context provided AND
+  // the item was holding one. The original holder is then the recipient.
+  const isReleaseFromHold =
+    !input.requestItemId && !!prev.currentRequestItemId;
+
   const recipientId =
-    input.holderId ??
-    (input.nextStatus === "available" || input.nextStatus === "maintenance"
-      ? prev.currentHolderId
-      : null);
+    input.holderId ?? (isReleaseFromHold ? prev.currentHolderId : null);
   if (!recipientId) return;
 
   switch (input.nextStatus) {
-    case "reserved":
+    case "reserved": {
+      const title = input.pickupBy
+        ? `Reserved: ${prev.name}. Pick up by ${formatDate(input.pickupBy)}.`
+        : `Reserved: ${prev.name}.`;
       await tx.insert(notifications).values({
         userId: recipientId,
         type: "inventory_request_approved",
-        title: `Reserved: ${prev.name}. Pick up by ${formatDate(input.pickupBy)}.`,
+        title,
         message: `Your request for ${prev.name} was approved.`,
         link: `/my/items?tab=active`,
       });
       return;
-    case "checked_out":
+    }
+    case "checked_out": {
       await tx.insert(notifications).values({
         userId: recipientId,
         type: "inventory_item_checked_out",
@@ -539,18 +553,31 @@ async function maybeNotify(
         link: `/my/items?tab=active`,
       });
       return;
+    }
     case "available":
-      // Released from a hold; notify if there was a prior holder.
-      if (prev.currentHolderId) {
+    case "maintenance":
+    case "retired": {
+      if (!isReleaseFromHold) return;
+      if (prev.status === "checked_out" && input.nextStatus === "available") {
         await tx.insert(notifications).values({
-          userId: prev.currentHolderId,
+          userId: recipientId,
           type: "inventory_item_returned",
           title: `Returned: ${prev.name}`,
           message: `Thanks for returning ${prev.name}.`,
           link: `/inventory/${prev.id}`,
         });
+      } else {
+        await tx.insert(notifications).values({
+          userId: recipientId,
+          type: "inventory_request_closed",
+          title: `Request closed: ${prev.name}`,
+          message:
+            input.comment ?? `Your request for ${prev.name} was closed by staff.`,
+          link: `/my/items?tab=history`,
+        });
       }
       return;
+    }
     default:
       return;
   }
