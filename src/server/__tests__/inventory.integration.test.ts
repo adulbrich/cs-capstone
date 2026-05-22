@@ -328,7 +328,8 @@ describe("listInventoryAs privacy", () => {
       pageSize: 50,
     });
     const found = result.rows.find((r) => r.id === item.id);
-    expect((found as { notes: string }).notes).toBe("internal");
+    expect(found).toBeDefined();
+    expect((found as unknown as { notes: string }).notes).toBe("internal");
   });
 
   it("hides retired items from non-staff list and detail", async () => {
