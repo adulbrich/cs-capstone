@@ -160,3 +160,22 @@ export const cancelRequestItem = createServerFn({ method: "POST" })
     );
     return cancelRequestItemForCurrentUser(data);
   });
+
+export const listMyItems = createServerFn({ method: "GET" })
+  .handler(async () => {
+    const { listMyItemsForCurrentUser } = await import("./_internal/inventory");
+    return listMyItemsForCurrentUser();
+  });
+
+const requestQueueSchema = z.object({
+  tab: z.enum(["pending", "all"]).default("pending"),
+});
+
+export const listInventoryRequests = createServerFn({ method: "GET" })
+  .inputValidator((d: unknown) => requestQueueSchema.parse(d))
+  .handler(async ({ data }) => {
+    const { listInventoryRequestsForCurrentUser } = await import(
+      "./_internal/inventory"
+    );
+    return listInventoryRequestsForCurrentUser(data);
+  });
