@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import { describe, expect, it } from "vitest";
 import { db } from "#/db";
 import {
+  inventoryItemEditLog,
   inventoryItemStatusHistory,
   inventoryItems,
   inventoryRequestItems,
@@ -11,8 +12,11 @@ import {
 } from "#/db/schema";
 import { auth } from "#/lib/auth";
 import {
+  createInventoryItemAs,
   getInventoryItemAs,
+  hardDeleteInventoryItemAs,
   listInventoryAs,
+  updateInventoryItemAs,
 } from "#/server/_internal/inventory";
 import { transitionItem } from "#/server/_internal/inventory-transitions";
 
@@ -348,5 +352,105 @@ describe("listInventoryAs privacy", () => {
     expect(anonDetail).toBeNull();
     const staffDetail = await getInventoryItemAs(admin, { id: item.id });
     expect(staffDetail?.status).toBe("retired");
+  });
+});
+
+describe("catalog CRUD", () => {
+  it("non-staff cannot create / update / delete", async () => {
+    const student = await makeUser(`s-${Date.now()}@x.com`, "user");
+    await expect(
+      createInventoryItemAs(student, {
+        name: "X",
+        description: null,
+        category: null,
+        serial: null,
+        location: null,
+        notes: null,
+        imageUrl: null,
+      }),
+    ).rejects.toThrow(/Forbidden/);
+  });
+
+  it("update writes one edit-log row with diffed fields", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const item = await makeItem({ name: "Old", location: "Shelf A" });
+    await updateInventoryItemAs(admin, {
+      id: item.id,
+      name: "New",
+      description: null,
+      category: null,
+      serial: null,
+      location: "Shelf B",
+      notes: null,
+      imageUrl: null,
+    });
+    const logs = await db
+      .select()
+      .from(inventoryItemEditLog)
+      .where(eq(inventoryItemEditLog.itemId, item.id));
+    expect(logs).toHaveLength(1);
+    expect(new Set(logs[0].changedFields)).toEqual(
+      new Set(["name", "location"]),
+    );
+    expect(logs[0].oldValues).toMatchObject({ name: "Old", location: "Shelf A" });
+    expect(logs[0].newValues).toMatchObject({ name: "New", location: "Shelf B" });
+  });
+
+  it("hard-delete refuses when status is checked_out", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const student = await makeUser(`s-${Date.now()}@x.com`, "user");
+    const item = await makeItem({ name: "Scope" });
+    const { line } = await makeRequestLine(student.id, item.id);
+    await transitionItem(admin, {
+      itemId: item.id,
+      nextStatus: "reserved",
+      requestItemId: line.id,
+      holderId: student.id,
+      pickupBy: new Date(Date.now() + 86400000),
+    });
+    await transitionItem(admin, {
+      itemId: item.id,
+      nextStatus: "checked_out",
+      requestItemId: line.id,
+      holderId: student.id,
+      dueAt: new Date(Date.now() + 7 * 86400000),
+    });
+    await expect(
+      hardDeleteInventoryItemAs(admin, { id: item.id, confirmName: "Scope" }),
+    ).rejects.toThrow(/available or retired/);
+  });
+
+  it("hard-delete refuses when name confirmation does not match", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const item = await makeItem({ name: "Real" });
+    await expect(
+      hardDeleteInventoryItemAs(admin, { id: item.id, confirmName: "Wrong" }),
+    ).rejects.toThrow(/confirmation/);
+  });
+
+  it("hard-delete succeeds when retired and unused", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const item = await makeItem({ name: "Old kit" });
+    await transitionItem(admin, { itemId: item.id, nextStatus: "retired" });
+    await hardDeleteInventoryItemAs(admin, {
+      id: item.id,
+      confirmName: "Old kit",
+    });
+    const found = await db
+      .select()
+      .from(inventoryItems)
+      .where(eq(inventoryItems.id, item.id));
+    expect(found).toHaveLength(0);
+  });
+
+  it("hard-delete fails when historical request lines reference the item", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const student = await makeUser(`s-${Date.now()}@x.com`, "user");
+    const item = await makeItem({ name: "Cabled" });
+    await makeRequestLine(student.id, item.id); // pending, never resolved
+    await transitionItem(admin, { itemId: item.id, nextStatus: "retired" });
+    await expect(
+      hardDeleteInventoryItemAs(admin, { id: item.id, confirmName: "Cabled" }),
+    ).rejects.toThrow();
   });
 });
