@@ -3,14 +3,15 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import type { NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { eq } from 'drizzle-orm';
-import { chromium } from '@playwright/test';
+import { chromium, expect } from '@playwright/test';
 import { writeFileSync } from 'node:fs';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import * as schema from '../../db/schema';
 
-const __dir = dirname(fileURLToPath(import.meta.url));
+const __dirname = dirname(fileURLToPath(import.meta.url));
 const BASE_URL = 'http://localhost:3000';
+// Must match the value set by scripts/seed-dev.ts.
 const PASSWORD = 'password';
 
 export default async function globalSetup() {
@@ -25,8 +26,10 @@ export default async function globalSetup() {
     await pool.end();
   }
 
-  await saveStorageState('user@example.com', join(__dir, '.user-auth.json'));
-  await saveStorageState('admin@example.com', join(__dir, '.admin-auth.json'));
+  await Promise.all([
+    saveStorageState('user@example.com', join(__dirname, '.user-auth.json')),
+    saveStorageState('admin@example.com', join(__dirname, '.admin-auth.json')),
+  ]);
 }
 
 async function createFixtures(db: NodePgDatabase<typeof schema>) {
@@ -49,6 +52,11 @@ async function createFixtures(db: NodePgDatabase<typeof schema>) {
       'instructor@example.com not found in database. Run: npm run db:seed:dev',
     );
   }
+  // instructor is only used as a program_instructors DB fixture — no auth session needed.
+
+  // Note: select-first is non-atomic. Concurrent global-setup runs could produce
+  // duplicate rows since these tables have no UNIQUE constraint on their sentinel
+  // values. Acceptable for single-worker CI; revisit if workers > 1.
 
   // Category (no unique constraint on name — select-first pattern)
   let [category] = await db
@@ -113,7 +121,7 @@ async function createFixtures(db: NodePgDatabase<typeof schema>) {
   }
 
   writeFileSync(
-    join(__dir, '.fixtures.json'),
+    join(__dirname, '.fixtures.json'),
     JSON.stringify(
       {
         projectId: project.id,
@@ -134,21 +142,17 @@ async function saveStorageState(email: string, outputPath: string) {
   const page = await context.newPage();
 
   await page.goto(`${BASE_URL}/sign-in`);
-  // Wait for the submit button to appear and React to finish hydrating.
-  // Vite's HMR keeps connections open so networkidle never fires; instead
-  // we wait for the button to be visible, then give React 1 s to attach its
-  // event listeners before submitting.
-  await page.waitForSelector('button[type="submit"]:not([disabled])', {
-    state: 'visible',
-    timeout: 15_000,
-  });
-  await page.waitForTimeout(1_000);
   await page.fill('input[name="email"]', email);
   await page.fill('input[name="password"]', PASSWORD);
-  await page.click('button[type="submit"]');
-  await page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), {
-    timeout: 15_000,
-  });
+
+  // Retry the click until React hydration completes and the form handler fires.
+  // Filling inputs is safe before hydration; only the submit click needs the handler.
+  await expect(async () => {
+    await page.click('button[type="submit"]');
+    await page.waitForURL((url) => !url.pathname.startsWith('/sign-in'), {
+      timeout: 2_000,
+    });
+  }).toPass({ timeout: 15_000 });
 
   await context.storageState({ path: outputPath });
   await browser.close();
