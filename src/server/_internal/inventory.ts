@@ -857,6 +857,38 @@ export async function listInventoryRequestsForCurrentUser(data: {
   return listInventoryRequestsAs(viewer, data);
 }
 
+export async function getItemHistoryAs(
+  viewer: Viewer,
+  data: { itemId: string },
+) {
+  assertStaff(viewer);
+  const rows = await db
+    .select({
+      id: inventoryItemStatusHistory.id,
+      itemId: inventoryItemStatusHistory.itemId,
+      oldStatus: inventoryItemStatusHistory.oldStatus,
+      newStatus: inventoryItemStatusHistory.newStatus,
+      comment: inventoryItemStatusHistory.comment,
+      requestItemId: inventoryItemStatusHistory.requestItemId,
+      holderId: inventoryItemStatusHistory.holderId,
+      holderLabel: inventoryItemStatusHistory.holderLabel,
+      createdAt: inventoryItemStatusHistory.createdAt,
+      changedById: user.id,
+      changedByName: user.name,
+      changedByEmail: user.email,
+    })
+    .from(inventoryItemStatusHistory)
+    .innerJoin(user, eq(inventoryItemStatusHistory.changedBy, user.id))
+    .where(eq(inventoryItemStatusHistory.itemId, data.itemId))
+    .orderBy(desc(inventoryItemStatusHistory.createdAt));
+  return rows;
+}
+
+export async function getItemHistoryForCurrentUser(data: { itemId: string }) {
+  const viewer = await requireUser();
+  return getItemHistoryAs(viewer, data);
+}
+
 /**
  * Derive the two deadline flags for a row. `status` is the item-level
  * status, not the request line's: when a line is `approved` the item is
