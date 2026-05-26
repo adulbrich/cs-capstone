@@ -26,6 +26,7 @@ import { Route as AuthedAdminIndexRouteImport } from './routes/_authed/admin/ind
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AuthedProjectsNewRouteImport } from './routes/_authed/projects/new'
 import { Route as AuthedMyProjectsRouteImport } from './routes/_authed/my/projects'
+import { Route as AuthedMyItemsRouteImport } from './routes/_authed/my/items'
 import { Route as AuthedMyBookmarksRouteImport } from './routes/_authed/my/bookmarks'
 import { Route as AuthedAdminUsersIndexRouteImport } from './routes/_authed/admin/users/index'
 import { Route as AuthedAdminProjectsIndexRouteImport } from './routes/_authed/admin/projects/index'
@@ -120,6 +121,11 @@ const AuthedMyProjectsRoute = AuthedMyProjectsRouteImport.update({
   path: '/my/projects',
   getParentRoute: () => AuthedRoute,
 } as any)
+const AuthedMyItemsRoute = AuthedMyItemsRouteImport.update({
+  id: '/my/items',
+  path: '/my/items',
+  getParentRoute: () => AuthedRoute,
+} as any)
 const AuthedMyBookmarksRoute = AuthedMyBookmarksRouteImport.update({
   id: '/my/bookmarks',
   path: '/my/bookmarks',
@@ -186,6 +192,7 @@ export interface FileRoutesByFullPath {
   '/inventory/': typeof InventoryIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/my/bookmarks': typeof AuthedMyBookmarksRoute
+  '/my/items': typeof AuthedMyItemsRoute
   '/my/projects': typeof AuthedMyProjectsRoute
   '/projects/new': typeof AuthedProjectsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -212,6 +219,7 @@ export interface FileRoutesByTo {
   '/inventory': typeof InventoryIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/my/bookmarks': typeof AuthedMyBookmarksRoute
+  '/my/items': typeof AuthedMyItemsRoute
   '/my/projects': typeof AuthedMyProjectsRoute
   '/projects/new': typeof AuthedProjectsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -241,6 +249,7 @@ export interface FileRoutesById {
   '/inventory/': typeof InventoryIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/_authed/my/bookmarks': typeof AuthedMyBookmarksRoute
+  '/_authed/my/items': typeof AuthedMyItemsRoute
   '/_authed/my/projects': typeof AuthedMyProjectsRoute
   '/_authed/projects/new': typeof AuthedProjectsNewRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
@@ -270,6 +279,7 @@ export interface FileRouteTypes {
     | '/inventory/'
     | '/projects/'
     | '/my/bookmarks'
+    | '/my/items'
     | '/my/projects'
     | '/projects/new'
     | '/api/auth/$'
@@ -296,6 +306,7 @@ export interface FileRouteTypes {
     | '/inventory'
     | '/projects'
     | '/my/bookmarks'
+    | '/my/items'
     | '/my/projects'
     | '/projects/new'
     | '/api/auth/$'
@@ -324,6 +335,7 @@ export interface FileRouteTypes {
     | '/inventory/'
     | '/projects/'
     | '/_authed/my/bookmarks'
+    | '/_authed/my/items'
     | '/_authed/my/projects'
     | '/_authed/projects/new'
     | '/api/auth/$'
@@ -474,6 +486,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedMyProjectsRouteImport
       parentRoute: typeof AuthedRoute
     }
+    '/_authed/my/items': {
+      id: '/_authed/my/items'
+      path: '/my/items'
+      fullPath: '/my/items'
+      preLoaderRoute: typeof AuthedMyItemsRouteImport
+      parentRoute: typeof AuthedRoute
+    }
     '/_authed/my/bookmarks': {
       id: '/_authed/my/bookmarks'
       path: '/my/bookmarks'
@@ -570,6 +589,7 @@ interface AuthedRouteChildren {
   AuthedAdminRoute: typeof AuthedAdminRouteWithChildren
   AuthedProfileRoute: typeof AuthedProfileRoute
   AuthedMyBookmarksRoute: typeof AuthedMyBookmarksRoute
+  AuthedMyItemsRoute: typeof AuthedMyItemsRoute
   AuthedMyProjectsRoute: typeof AuthedMyProjectsRoute
   AuthedProjectsNewRoute: typeof AuthedProjectsNewRoute
   AuthedProjectsProjectIdEditRoute: typeof AuthedProjectsProjectIdEditRoute
@@ -579,6 +599,7 @@ const AuthedRouteChildren: AuthedRouteChildren = {
   AuthedAdminRoute: AuthedAdminRouteWithChildren,
   AuthedProfileRoute: AuthedProfileRoute,
   AuthedMyBookmarksRoute: AuthedMyBookmarksRoute,
+  AuthedMyItemsRoute: AuthedMyItemsRoute,
   AuthedMyProjectsRoute: AuthedMyProjectsRoute,
   AuthedProjectsNewRoute: AuthedProjectsNewRoute,
   AuthedProjectsProjectIdEditRoute: AuthedProjectsProjectIdEditRoute,

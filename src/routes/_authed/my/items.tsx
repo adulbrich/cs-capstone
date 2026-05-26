@@ -1,0 +1,186 @@
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useQueryClient } from "@tanstack/react-query";
+import { useState } from "react";
+import { z } from "zod";
+import {
+  cancelRequestItem,
+  listMyItems,
+  removeFromCart,
+  submitCart,
+} from "#/server/inventory";
+import { Button } from "#/components/ui/button";
+import { Textarea } from "#/components/ui/textarea";
+import { InventoryStatusBadge } from "#/components/inventory-status-badge";
+
+const searchSchema = z.object({
+  tab: z.enum(["cart", "active", "history"]).default("active"),
+});
+
+export const Route = createFileRoute("/_authed/my/items")({
+  validateSearch: (s) => searchSchema.parse(s),
+  loader: () => listMyItems(),
+  component: MyItems,
+});
+
+function MyItems() {
+  const data = Route.useLoaderData();
+  const search = Route.useSearch();
+  const navigate = useNavigate({ from: "/my/items" });
+  const qc = useQueryClient();
+  const [note, setNote] = useState("");
+
+  const tab =
+    data.cart.length > 0 && search.tab === "active" ? "cart" : search.tab;
+
+  return (
+    <div className="mx-auto max-w-4xl px-4 py-6 md:p-8">
+      <h1 className="text-2xl font-semibold">My items</h1>
+      <div className="mt-4 flex gap-4 border-b border-border">
+        {(["cart", "active", "history"] as const).map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => navigate({ search: () => ({ tab: t }) })}
+            className={
+              t === tab
+                ? "border-b-2 px-2 py-1 font-medium"
+                : "px-2 py-1 text-muted-foreground hover:text-foreground"
+            }
+            style={
+              t === tab ? { borderBottomColor: "var(--brand-primary)" } : undefined
+            }
+          >
+            {t === "cart"
+              ? `Cart (${data.cart.length})`
+              : t === "active"
+                ? `Active (${data.active.length})`
+                : "History"}
+          </button>
+        ))}
+      </div>
+
+      {tab === "cart" && (
+        <div className="mt-4 space-y-2">
+          {data.cart.length === 0 && (
+            <p className="text-muted-foreground">Your cart is empty.</p>
+          )}
+          {data.cart.map((row) => (
+            <div
+              key={row.itemId}
+              className="flex items-center justify-between rounded-md border border-border bg-card p-3"
+            >
+              <div>
+                <p className="font-medium">{row.name}</p>
+                <InventoryStatusBadge status={row.status as "available"} />
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  await removeFromCart({ data: { itemId: row.itemId } });
+                  await qc.invalidateQueries();
+                }}
+              >
+                Remove
+              </Button>
+            </div>
+          ))}
+          {data.cart.length > 0 && (
+            <div className="space-y-2 rounded-md border border-border bg-card p-3">
+              <Textarea
+                value={note}
+                onChange={(e) => setNote(e.target.value)}
+                placeholder="Optional note for staff"
+              />
+              <Button
+                onClick={async () => {
+                  const result = await submitCart({
+                    data: { note: note || null },
+                  });
+                  setNote("");
+                  await qc.invalidateQueries();
+                  if (result.skipped.length > 0) {
+                    alert(
+                      `Submitted ${result.submitted.length}; skipped ${result.skipped.length} (no longer available).`,
+                    );
+                  }
+                  navigate({ search: () => ({ tab: "active" }) });
+                }}
+              >
+                Submit request
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {tab === "active" && (
+        <div className="mt-4 space-y-2">
+          {data.active.length === 0 && (
+            <p className="text-muted-foreground">No active requests.</p>
+          )}
+          {data.active.map(({ line, item }) => {
+            const canCancel =
+              (line.status === "pending" || line.status === "approved") &&
+              item.status !== "checked_out";
+            return (
+              <div
+                key={line.id}
+                className="flex items-center justify-between rounded-md border border-border bg-card p-3"
+              >
+                <div>
+                  <p className="font-medium">{item.name}</p>
+                  <InventoryStatusBadge status={item.status as "available"} />
+                  {line.pickupBy && (
+                    <p className="text-xs text-muted-foreground">
+                      Pick up by {line.pickupBy.toLocaleDateString()}
+                    </p>
+                  )}
+                  {line.dueAt && (
+                    <p className="text-xs text-muted-foreground">
+                      Due {line.dueAt.toLocaleDateString()}
+                    </p>
+                  )}
+                </div>
+                {canCancel && (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={async () => {
+                      await cancelRequestItem({
+                        data: { requestItemId: line.id, note: null },
+                      });
+                      await qc.invalidateQueries();
+                    }}
+                  >
+                    Cancel
+                  </Button>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {tab === "history" && (
+        <div className="mt-4 space-y-2">
+          {data.history.length === 0 && (
+            <p className="text-muted-foreground">No history yet.</p>
+          )}
+          {data.history.map(({ line, item }) => (
+            <div
+              key={line.id}
+              className="rounded-md border border-border bg-card p-3"
+            >
+              <p className="font-medium">{item.name}</p>
+              <p className="text-xs text-muted-foreground">Status: {line.status}</p>
+              {line.closedReason && (
+                <p className="mt-1 text-sm">{line.closedReason}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
