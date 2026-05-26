@@ -33,7 +33,17 @@ function ItemDetail() {
         <div>
           <h1 className="text-2xl font-semibold">{item.name}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <InventoryStatusBadge status={item.status as "available"} />
+            <InventoryStatusBadge
+              status={
+                item.status as
+                  | "available"
+                  | "requested"
+                  | "reserved"
+                  | "checked_out"
+                  | "maintenance"
+                  | "retired"
+              }
+            />
             {item.category && (
               <span className="rounded bg-secondary px-2 py-0.5 text-xs text-muted-foreground">
                 {item.category}
