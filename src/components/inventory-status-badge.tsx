@@ -41,7 +41,7 @@ const STYLES: Record<Status, React.CSSProperties> = {
   },
   requested: {
     background: "var(--brand-primary-tint)",
-    color: "var(--brand-primary)",
+    color: "var(--brand-primary-dark)",
   },
   reserved: {
     background: "color-mix(in srgb, var(--status-warning) 18%, transparent)",

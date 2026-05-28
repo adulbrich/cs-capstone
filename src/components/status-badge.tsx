@@ -6,7 +6,7 @@ const STATUS_STYLES: Record<string, { fg: string; bg: string }> = {
     fg: "var(--status-warning)",
     bg: "var(--status-warning-bg)",
   },
-  published: { fg: "var(--brand-primary)", bg: "var(--brand-primary-tint)" },
+  published: { fg: "var(--brand-primary-dark)", bg: "var(--brand-primary-tint)" },
   archived: { fg: "var(--status-neutral)", bg: "var(--status-neutral-bg)" },
   deleted: { fg: "var(--status-error)", bg: "var(--status-error-bg)" },
 };
