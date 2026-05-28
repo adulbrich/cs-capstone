@@ -36,7 +36,7 @@ export function InventoryStatusBadge({
 
 const STYLES: Record<Status, React.CSSProperties> = {
   available: {
-    background: "color-mix(in srgb, var(--status-success) 15%, transparent)",
+    background: "var(--status-success-bg)",
     color: "var(--status-success)",
   },
   requested: {
@@ -44,7 +44,7 @@ const STYLES: Record<Status, React.CSSProperties> = {
     color: "var(--brand-primary-dark)",
   },
   reserved: {
-    background: "color-mix(in srgb, var(--status-warning) 18%, transparent)",
+    background: "var(--status-warning-bg)",
     color: "var(--status-warning)",
   },
   checked_out: {
