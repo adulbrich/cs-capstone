@@ -1,44 +1,41 @@
 import { Link } from "@tanstack/react-router";
 import { getPublicUrl } from "#/lib/storage";
 import { ImageOrFallback } from "./image-or-fallback";
-import type { ProjectSummary } from "./project-card";
+import { type ProjectSummary, programLabel } from "./project-card";
 import { StatusBadge } from "./status-badge";
 
 export function ProjectRow({ project }: { project: ProjectSummary }) {
   const src = getPublicUrl(project.imageUrl);
+  const meta = [programLabel(project), project.contactName].filter(
+    Boolean,
+  ) as string[];
   return (
     <Link
       to="/projects/$projectId"
       params={{ projectId: project.id }}
-      className="flex items-stretch gap-3 rounded border border-[var(--line)] hover:border-[var(--brand-primary)]"
-      style={{
-        background: "var(--surface-raised)",
-        transition: "border-color 180ms ease",
-      }}
+      className="flex items-stretch gap-3 overflow-hidden rounded-lg border border-border bg-card transition-colors hover:border-primary"
     >
-      <ImageOrFallback
-        src={src}
-        className="h-20 w-28 flex-shrink-0 object-cover"
-      />
-      <div className="min-w-0 flex-1 p-3">
-        <div className="flex items-center justify-between gap-3">
-          <h3 className="truncate font-medium">{project.title}</h3>
-          <StatusBadge status={project.status} />
+      <ImageOrFallback src={src} className="h-24 w-32 shrink-0 object-cover" />
+      <div className="min-w-0 flex-1 py-3 pr-3">
+        <div className="flex items-start justify-between gap-3">
+          <h3 className="truncate text-sm font-semibold">{project.title}</h3>
+          {project.status !== "published" && (
+            <StatusBadge status={project.status} />
+          )}
         </div>
         {project.description && (
-          <p
-            className="mt-1 line-clamp-1 text-sm"
-            style={{ color: "var(--text-secondary)" }}
-          >
+          <p className="mt-1 line-clamp-3 text-sm text-muted-foreground">
             {project.description}
           </p>
         )}
-        {project.publishedAt && (
-          <p
-            className="mt-1 text-xs"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            {new Date(project.publishedAt).toLocaleDateString()}
+        {meta.length > 0 && (
+          <p className="mt-1 text-xs text-muted-foreground">
+            {meta.join(" · ")}
+          </p>
+        )}
+        {project.updatedAt && (
+          <p className="mt-0.5 text-xs text-muted-foreground">
+            Updated {new Date(project.updatedAt).toLocaleDateString()}
           </p>
         )}
       </div>
