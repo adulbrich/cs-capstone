@@ -110,7 +110,7 @@ export function InstructorManager({ programId, initial, onChanged }: Props) {
       )}
       <div className="mt-3 flex gap-2">
         <Select value={picked} onValueChange={setPicked}>
-          <SelectTrigger size="sm" className="w-64">
+          <SelectTrigger size="sm" className="w-64" aria-label="Add instructor">
             <SelectValue placeholder="Add instructor..." />
           </SelectTrigger>
           <SelectContent>

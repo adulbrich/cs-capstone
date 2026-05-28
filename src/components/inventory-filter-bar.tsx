@@ -84,7 +84,7 @@ export function InventoryFilterBar(props: Props) {
             props.onCategoryChange(v === "_all_" ? null : v)
           }
         >
-          <SelectTrigger className="h-9 w-40">
+          <SelectTrigger className="h-9 w-40" aria-label="Filter by category">
             <SelectValue placeholder="Category" />
           </SelectTrigger>
           <SelectContent>
