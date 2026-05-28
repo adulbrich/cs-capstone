@@ -40,14 +40,14 @@ export function UserMenu({ user }: Props) {
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
         <DropdownMenuItem asChild>
-          <Link to="/my/projects">My projects</Link>
+          <Link to="/my/projects">My Projects</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
-          <Link to="/my/bookmarks">My bookmarks</Link>
+          <Link to="/my/bookmarks">My Bookmarks</Link>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link to="/my/items" search={{ tab: "active" }}>
-            My items
+            My Items
           </Link>
         </DropdownMenuItem>
         <DropdownMenuSeparator />
