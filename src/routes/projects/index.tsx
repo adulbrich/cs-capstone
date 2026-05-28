@@ -9,6 +9,7 @@ const searchSchema = z.object({
   q: z.string().default(""),
   categories: z.array(z.string().uuid()).default([]),
   program: z.string().uuid().nullable().default(null),
+  archivedOnly: z.boolean().default(false),
   page: z.number().int().min(1).default(1),
   view: z.enum(["card", "row"]).default("card"),
 });
@@ -23,6 +24,7 @@ export const Route = createFileRoute("/projects/")({
         query: deps.q,
         categoryIds: deps.categories,
         programId: deps.program,
+        archivedOnly: deps.archivedOnly,
         page: deps.page,
         pageSize: 20,
       },
@@ -43,6 +45,7 @@ function ProjectsList() {
           q={search.q}
           categories={search.categories}
           program={search.program}
+          archivedOnly={search.archivedOnly}
           view={search.view}
         />
       </div>

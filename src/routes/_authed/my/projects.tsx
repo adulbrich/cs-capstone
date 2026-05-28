@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { z } from "zod";
-import { ProjectCard } from "#/components/project-card";
+import { ProjectRow } from "#/components/project-row";
 import { Button } from "#/components/ui/button";
 import {
   Select,
@@ -98,13 +98,13 @@ function MyProjects() {
           </Link>
         ))}
       </div>
-      <div className="mt-4 space-y-3">
+      <div className="mt-4 space-y-2">
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No projects in this view.
           </p>
         ) : (
-          rows.map((p) => <ProjectCard key={p.id} project={p} />)
+          rows.map((p) => <ProjectRow key={p.id} project={p} />)
         )}
       </div>
     </div>

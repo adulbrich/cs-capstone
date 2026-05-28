@@ -1,12 +1,12 @@
-import { and, desc, eq, isNull, sql } from "drizzle-orm";
+import { and, desc, eq, inArray, isNull, sql } from "drizzle-orm";
 import { db } from "#/db";
-import { projects } from "#/db/schema";
+import { projectCategories, projects } from "#/db/schema";
 import type { SearchProjectsInput } from "../search";
 
 export async function searchProjectsImpl(data: SearchProjectsInput) {
   const trimmed = data.query.trim();
   const conditions = [
-    eq(projects.status, "published"),
+    eq(projects.status, data.archivedOnly ? "archived" : "published"),
     isNull(projects.deletedAt),
   ];
   if (trimmed) {
@@ -18,14 +18,13 @@ export async function searchProjectsImpl(data: SearchProjectsInput) {
     conditions.push(eq(projects.programId, data.programId));
   }
   if (data.categoryIds.length > 0) {
-    conditions.push(
-      sql`${projects.id} IN (
-        SELECT project_id FROM project_categories
-        WHERE category_id = ANY(${data.categoryIds}::uuid[])
-        GROUP BY project_id
-        HAVING count(*) = ${data.categoryIds.length}
-      )`,
-    );
+    const matchingProjectIds = db
+      .select({ projectId: projectCategories.projectId })
+      .from(projectCategories)
+      .where(inArray(projectCategories.categoryId, data.categoryIds))
+      .groupBy(projectCategories.projectId)
+      .having(sql`count(*) = ${data.categoryIds.length}`);
+    conditions.push(inArray(projects.id, matchingProjectIds));
   }
 
   const orderBy = trimmed

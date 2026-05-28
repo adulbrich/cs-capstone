@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate, useRouter } from "@tanstack/react-router";
 import { useState } from "react";
 import { z } from "zod";
 import { InventoryStatusBadge } from "#/components/inventory-status-badge";
@@ -26,8 +26,13 @@ function MyItems() {
   const data = Route.useLoaderData();
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/my/items" });
+  const router = useRouter();
   const qc = useQueryClient();
   const [note, setNote] = useState("");
+
+  async function refresh() {
+    await Promise.all([qc.invalidateQueries(), router.invalidate()]);
+  }
 
   const tab =
     data.cart.length > 0 && search.tab === "active" ? "cart" : search.tab;
@@ -78,7 +83,7 @@ function MyItems() {
                 size="sm"
                 onClick={async () => {
                   await removeFromCart({ data: { itemId: row.itemId } });
-                  await qc.invalidateQueries();
+                  await refresh();
                 }}
               >
                 Remove
@@ -98,7 +103,7 @@ function MyItems() {
                     data: { note: note || null },
                   });
                   setNote("");
-                  await qc.invalidateQueries();
+                  await refresh();
                   if (result.skipped.length > 0) {
                     alert(
                       `Submitted ${result.submitted.length}; skipped ${result.skipped.length} (no longer available).`,
@@ -150,7 +155,7 @@ function MyItems() {
                       await cancelRequestItem({
                         data: { requestItemId: line.id, note: null },
                       });
-                      await qc.invalidateQueries();
+                      await refresh();
                     }}
                   >
                     Cancel

@@ -66,6 +66,7 @@ describe("searchProjects", () => {
       query: "react",
       categoryIds: [],
       programId: null,
+      archivedOnly: false,
       page: 1,
       pageSize: 20,
     });
@@ -81,6 +82,7 @@ describe("searchProjects", () => {
       query: "",
       categoryIds: [],
       programId: null,
+      archivedOnly: false,
       page: 1,
       pageSize: 20,
     });
@@ -95,6 +97,7 @@ describe("searchProjects", () => {
       query: "",
       categoryIds: [],
       programId: null,
+      archivedOnly: false,
       page: 1,
       pageSize: 20,
     });
@@ -109,6 +112,7 @@ describe("searchProjects", () => {
       query: "   ",
       categoryIds: [],
       programId: null,
+      archivedOnly: false,
       page: 1,
       pageSize: 20,
     });

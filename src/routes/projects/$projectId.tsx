@@ -143,19 +143,15 @@ function ProjectDetail() {
         label="Preferred qualifications"
         body={project.prefQualifications as string | null}
       />
-      <Section
-        label="Contact"
-        body={
-          [project.contactName, project.contactEmail]
-            .filter(Boolean)
-            .join(": ") || null
-        }
+      <ContactSection
+        name={project.contactName as string | null}
+        email={project.contactEmail as string | null}
       />
       <Section
         label="License / IP"
         body={project.licenseRestrictions as string | null}
       />
-      <Section label="URL" body={project.url as string | null} />
+      <UrlSection url={project.url as string | null} />
 
       <section className="mt-8">
         <h2 className="font-semibold text-lg">Status history</h2>
@@ -202,6 +198,53 @@ function Section({ label, body }: { label: string; body: string | null }) {
     <section className="mt-6">
       <h2 className="font-medium text-sm text-muted-foreground">{label}</h2>
       <p className="mt-1 whitespace-pre-wrap">{body}</p>
+    </section>
+  );
+}
+
+function ContactSection({
+  name,
+  email,
+}: {
+  name: string | null;
+  email: string | null;
+}) {
+  if (!name && !email) return null;
+  return (
+    <section className="mt-6">
+      <h2 className="font-medium text-sm text-muted-foreground">Contact</h2>
+      <p className="mt-1">
+        {name && <span>{name}</span>}
+        {name && email && <span>: </span>}
+        {email && (
+          <a
+            href={`mailto:${email}`}
+            className="text-brand hover:underline"
+          >
+            {email}
+          </a>
+        )}
+      </p>
+    </section>
+  );
+}
+
+function UrlSection({ url }: { url: string | null }) {
+  if (!url) return null;
+  const href = /^https?:\/\//i.test(url) ? url : `https://${url}`;
+  return (
+    <section className="mt-6">
+      <h2 className="font-medium text-sm text-muted-foreground">URL</h2>
+      <p className="mt-1">
+        <a
+          href={href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="break-all text-brand hover:underline"
+        >
+          {url}
+        </a>
+      </p>
     </section>
   );
 }

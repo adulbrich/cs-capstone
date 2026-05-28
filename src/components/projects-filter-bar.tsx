@@ -20,10 +20,17 @@ type Props = {
   q: string;
   categories: string[];
   program: string | null;
+  archivedOnly: boolean;
   view: "card" | "row";
 };
 
-export function ProjectsFilterBar({ q, categories, program, view }: Props) {
+export function ProjectsFilterBar({
+  q,
+  categories,
+  program,
+  archivedOnly,
+  view,
+}: Props) {
   const navigate = useNavigate({ from: "/projects/" });
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [allPrograms, setAllPrograms] = useState<Program[]>([]);
@@ -74,7 +81,20 @@ export function ProjectsFilterBar({ q, categories, program, view }: Props) {
 
   function clearAll() {
     void navigate({
-      search: () => ({ q: "", categories: [], program: null, page: 1 }),
+      search: (prev) => ({
+        ...prev,
+        q: "",
+        categories: [],
+        program: null,
+        archivedOnly: false,
+        page: 1,
+      }),
+    });
+  }
+
+  function setArchivedOnly(value: boolean) {
+    void navigate({
+      search: (prev) => ({ ...prev, archivedOnly: value, page: 1 }),
     });
   }
 
@@ -85,7 +105,8 @@ export function ProjectsFilterBar({ q, categories, program, view }: Props) {
     grouped.set(c.type, arr);
   }
 
-  const hasAnyFilter = q || categories.length > 0 || program;
+  const hasAnyFilter =
+    q || categories.length > 0 || program || archivedOnly;
 
   return (
     <div className="rounded-lg border border-border p-4">
@@ -119,6 +140,16 @@ export function ProjectsFilterBar({ q, categories, program, view }: Props) {
               ))}
             </SelectContent>
           </Select>
+        </div>
+        <div className="flex items-end">
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={archivedOnly}
+              onChange={(e) => setArchivedOnly(e.target.checked)}
+            />
+            Show only archived projects
+          </label>
         </div>
       </div>
 

@@ -85,6 +85,80 @@ function recommendedNext(status: Status): {
   }
 }
 
+const HISTORY_PAGE_SIZE = 10;
+
+function StatusHistorySection({ history }: { history: HistoryRow[] }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(history.length / HISTORY_PAGE_SIZE));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * HISTORY_PAGE_SIZE;
+  const slice = history.slice(start, start + HISTORY_PAGE_SIZE);
+
+  return (
+    <section>
+      <h2 className="text-sm font-medium">Status history</h2>
+      {history.length === 0 ? (
+        <p className="mt-2 text-sm text-muted-foreground">No history.</p>
+      ) : (
+        <>
+          <ul className="mt-2 space-y-2">
+            {slice.map((h) => (
+              <li
+                key={h.id}
+                className="rounded-md border border-border bg-card p-3 text-sm"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">
+                    {h.oldStatus ? `${h.oldStatus} -> ` : ""}
+                    {h.newStatus}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    by {h.changedByName ?? h.changedByEmail}
+                  </span>
+                  <span className="text-xs text-muted-foreground">
+                    {new Date(h.createdAt).toLocaleString()}
+                  </span>
+                </div>
+                {(h.holderId || h.holderLabel) && (
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Holder: {h.holderLabel ?? h.holderId}
+                  </p>
+                )}
+                {h.comment && (
+                  <p className="mt-1 whitespace-pre-wrap">{h.comment}</p>
+                )}
+              </li>
+            ))}
+          </ul>
+          {totalPages > 1 && (
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={safePage <= 1}
+                onClick={() => setPage((p) => Math.max(1, p - 1))}
+              >
+                Previous
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                Page {safePage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={safePage >= totalPages}
+                onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+              >
+                Next
+              </Button>
+            </div>
+          )}
+        </>
+      )}
+    </section>
+  );
+}
+
 export function InventoryLifecyclePanel({ item, holderName, history }: Props) {
   const router = useRouter();
   const status = item.status as Status;
@@ -281,42 +355,7 @@ export function InventoryLifecyclePanel({ item, holderName, history }: Props) {
         </p>
       </section>
 
-      <section>
-        <h2 className="text-sm font-medium">Status history</h2>
-        {history.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">No history.</p>
-        ) : (
-          <ul className="mt-2 space-y-2">
-            {history.map((h) => (
-              <li
-                key={h.id}
-                className="rounded-md border border-border bg-card p-3 text-sm"
-              >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">
-                    {h.oldStatus ? `${h.oldStatus} -> ` : ""}
-                    {h.newStatus}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    by {h.changedByName ?? h.changedByEmail}
-                  </span>
-                  <span className="text-xs text-muted-foreground">
-                    {new Date(h.createdAt).toLocaleString()}
-                  </span>
-                </div>
-                {(h.holderId || h.holderLabel) && (
-                  <p className="mt-1 text-xs text-muted-foreground">
-                    Holder: {h.holderLabel ?? h.holderId}
-                  </p>
-                )}
-                {h.comment && (
-                  <p className="mt-1 whitespace-pre-wrap">{h.comment}</p>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      <StatusHistorySection history={history} />
 
       <section className="rounded-md border border-destructive/30 bg-destructive/5 p-4">
         <h2 className="text-sm font-medium">Danger zone</h2>
