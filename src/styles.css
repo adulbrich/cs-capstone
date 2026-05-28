@@ -92,10 +92,13 @@
 
 @media (prefers-color-scheme: dark) {
 :root {
-  /* Brand — primary kept for buttons/indicators; dark bumped to #FF8C5A so
-     link text clears WCAG AA on every dark surface (7:1 on #1C1C1C) */
+  /* Brand — primary kept at vivid orange for decorative uses; brand-primary-dark
+     bumped to #FF8C5A so link text clears WCAG AA (7:1 on #1C1C1C).
+     --primary overrides the var(--brand-primary) reference for buttons so
+     white button text meets 4.5:1 before BrandProvider hydrates. */
   --brand-primary:        #EF5713;
   --brand-primary-dark:   #FF8C5A;
+  --primary:              #C04300;
   --brand-primary-tint:   rgba(239, 87, 19, 0.12);
 
   /* Surfaces — deeper base gives more range for the gradient */
