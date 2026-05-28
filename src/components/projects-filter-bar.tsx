@@ -2,6 +2,7 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { listCategories } from "#/server/categories";
 import { listPrograms } from "#/server/programs";
+import { Checkbox } from "./ui/checkbox";
 import { Input } from "./ui/input";
 import { Label } from "./ui/label";
 import {
@@ -105,8 +106,7 @@ export function ProjectsFilterBar({
     grouped.set(c.type, arr);
   }
 
-  const hasAnyFilter =
-    q || categories.length > 0 || program || archivedOnly;
+  const hasAnyFilter = q || categories.length > 0 || program || archivedOnly;
 
   return (
     <div className="rounded-lg border border-border p-4">
@@ -142,14 +142,13 @@ export function ProjectsFilterBar({
           </Select>
         </div>
         <div className="flex items-end">
-          <label className="flex items-center gap-2 text-sm">
-            <input
-              type="checkbox"
+          <Label className="font-normal">
+            <Checkbox
               checked={archivedOnly}
-              onChange={(e) => setArchivedOnly(e.target.checked)}
+              onCheckedChange={(checked) => setArchivedOnly(checked === true)}
             />
             Show only archived projects
-          </label>
+          </Label>
         </div>
       </div>
 
@@ -164,17 +163,13 @@ export function ProjectsFilterBar({
                 <p className="text-xs text-muted-foreground">{type}</p>
                 <div className="mt-1 flex flex-wrap gap-2">
                   {items.map((c) => (
-                    <label
-                      key={c.id}
-                      className="flex items-center gap-1 text-sm"
-                    >
-                      <input
-                        type="checkbox"
+                    <Label key={c.id} className="font-normal">
+                      <Checkbox
                         checked={categories.includes(c.id)}
-                        onChange={() => toggleCategory(c.id)}
+                        onCheckedChange={() => toggleCategory(c.id)}
                       />
                       {c.name}
-                    </label>
+                    </Label>
                   ))}
                 </div>
               </div>

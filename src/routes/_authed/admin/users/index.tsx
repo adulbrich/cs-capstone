@@ -15,6 +15,7 @@ import {
   BreadcrumbPage,
   BreadcrumbSeparator,
 } from "#/components/ui/breadcrumb";
+import { Checkbox } from "#/components/ui/checkbox";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
 import {
@@ -139,22 +140,21 @@ function UsersAdmin() {
             </SelectContent>
           </Select>
         </div>
-        <label className="flex items-center gap-1 text-sm">
-          <input
-            type="checkbox"
+        <Label className="font-normal">
+          <Checkbox
             checked={includeBanned}
-            onChange={(e) =>
+            onCheckedChange={(checked) =>
               void navigate({
                 search: (prev) => ({
                   ...prev,
-                  includeBanned: e.target.checked,
+                  includeBanned: checked === true,
                   page: 1,
                 }),
               })
             }
           />
           Include banned
-        </label>
+        </Label>
       </div>
 
       <AdminTable columns={["Email", "Name", "Role", "Banned", ""]}>

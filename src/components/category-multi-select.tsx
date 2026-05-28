@@ -1,4 +1,6 @@
 import { useEffect, useState } from "react";
+import { Checkbox } from "#/components/ui/checkbox";
+import { Label } from "#/components/ui/label";
 import { listCategories } from "#/server/categories";
 
 type Category = {
@@ -59,14 +61,13 @@ export function CategoryMultiSelect({ value, onChange }: Props) {
           </legend>
           <div className="flex flex-wrap gap-2">
             {items.map((c) => (
-              <label key={c.id} className="flex items-center gap-1 text-sm">
-                <input
-                  type="checkbox"
+              <Label key={c.id} className="font-normal">
+                <Checkbox
                   checked={value.includes(c.id)}
-                  onChange={() => toggle(c.id)}
+                  onCheckedChange={() => toggle(c.id)}
                 />
                 {c.name}
-              </label>
+              </Label>
             ))}
           </div>
         </fieldset>

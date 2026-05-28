@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { addComment } from "#/server/comments";
 import { Button } from "./ui/button";
+import { Checkbox } from "./ui/checkbox";
+import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 
 type Comment = {
@@ -191,14 +193,13 @@ function NewCommentForm({
         rows={3}
       />
       {viewerIsStaff && (
-        <label className="flex items-center gap-2 text-sm">
-          <input
-            type="checkbox"
+        <Label className="font-normal">
+          <Checkbox
             checked={isInternal}
-            onChange={(e) => setIsInternal(e.target.checked)}
+            onCheckedChange={(checked) => setIsInternal(checked === true)}
           />
           Internal (staff only)
-        </label>
+        </Label>
       )}
       <Button type="submit" size="sm">
         Post comment
@@ -263,14 +264,13 @@ function ReplyForm({
         rows={2}
       />
       {viewerIsStaff && (
-        <label className="flex items-center gap-2 text-xs">
-          <input
-            type="checkbox"
+        <Label className="text-xs font-normal">
+          <Checkbox
             checked={isInternal}
-            onChange={(e) => setIsInternal(e.target.checked)}
+            onCheckedChange={(checked) => setIsInternal(checked === true)}
           />
           Internal (staff only)
-        </label>
+        </Label>
       )}
       <div className="flex gap-2">
         <Button type="submit" size="xs">
