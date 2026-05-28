@@ -8,7 +8,7 @@ type ProjectSummary = {
   title: string;
   description: string | null;
   status: string;
-  publishedAt: Date | string | null;
+  publishedAt?: Date | string | null;
   imageUrl?: string | null;
 };
 

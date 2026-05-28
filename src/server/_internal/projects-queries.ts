@@ -1,6 +1,7 @@
 import { and, asc, desc, eq, isNull } from "drizzle-orm";
 import { db } from "#/db";
 import {
+  programs,
   projectComments,
   projectEditLog,
   projectStatusHistory,
@@ -14,6 +15,7 @@ import {
   stripStaffOnlyFields,
   type Viewer,
 } from "#/lib/project-visibility";
+import { projectSummarySelect } from "./project-summary";
 
 type JsonValue =
   | string
@@ -52,8 +54,9 @@ export async function listMyProjectsImpl(data: { status: StatusFilter }) {
     conditions.push(eq(projects.status, data.status as ProjectStatus));
   }
   const rows = await db
-    .select()
+    .select(projectSummarySelect)
     .from(projects)
+    .leftJoin(programs, eq(projects.programId, programs.id))
     .where(and(...conditions))
     .orderBy(desc(projects.updatedAt));
   return { rows };
@@ -73,8 +76,9 @@ export async function listAdminProjectsImpl(data: {
     conditions.push(isNull(projects.deletedAt));
   }
   const rows = await db
-    .select()
+    .select(projectSummarySelect)
     .from(projects)
+    .leftJoin(programs, eq(projects.programId, programs.id))
     .where(conditions.length ? and(...conditions) : undefined)
     .orderBy(desc(projects.updatedAt));
   return { rows };

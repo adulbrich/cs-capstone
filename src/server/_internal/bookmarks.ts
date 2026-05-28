@@ -1,8 +1,9 @@
 import { and, desc, eq, isNull } from "drizzle-orm";
 import { db } from "#/db";
-import { projectBookmarks, projects } from "#/db/schema";
+import { programs, projectBookmarks, projects } from "#/db/schema";
 import { requireUser } from "#/lib/_internal/auth-guards";
 import { canSeeProject } from "#/lib/project-visibility";
+import { projectSummarySelect } from "./project-summary";
 
 export async function addBookmarkForCurrentUser(data: { projectId: string }) {
   const viewer = await requireUser();
@@ -54,16 +55,12 @@ export async function listMyBookmarksForCurrentUser() {
   const viewer = await requireUser();
   const rows = await db
     .select({
-      id: projects.id,
-      title: projects.title,
-      description: projects.description,
-      status: projects.status,
-      publishedAt: projects.publishedAt,
-      proposerId: projects.proposerId,
+      ...projectSummarySelect,
       bookmarkedAt: projectBookmarks.createdAt,
     })
     .from(projectBookmarks)
     .innerJoin(projects, eq(projectBookmarks.projectId, projects.id))
+    .leftJoin(programs, eq(projects.programId, programs.id))
     .where(
       and(eq(projectBookmarks.userId, viewer.id), isNull(projects.deletedAt)),
     )
