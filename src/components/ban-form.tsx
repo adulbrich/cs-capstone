@@ -2,6 +2,7 @@ import { useState } from "react";
 import { banUser, unbanUser } from "#/server/users";
 import { Button } from "./ui/button";
 import { Input } from "./ui/input";
+import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 
 type Props = {
@@ -89,22 +90,28 @@ export function BanForm({
     <section className="mt-4">
       <h2 className="font-medium text-sm">Ban this user</h2>
       <div className="mt-2 space-y-2">
-        <Textarea
-          value={reason}
-          onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason (required)"
-          required
-          rows={3}
-        />
-        <Input
-          type="datetime-local"
-          value={expiresAt}
-          onChange={(e) => setExpiresAt(e.target.value)}
-          className="w-auto"
-        />
-        <p className="text-xs text-muted-foreground">
-          Leave expiry blank for permanent.
-        </p>
+        <div>
+          <Label htmlFor="ban-reason">Reason</Label>
+          <Textarea
+            id="ban-reason"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (required)"
+            required
+            rows={3}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="ban-expires">Expires at (leave blank for permanent)</Label>
+          <Input
+            id="ban-expires"
+            type="datetime-local"
+            value={expiresAt}
+            onChange={(e) => setExpiresAt(e.target.value)}
+            className="mt-1 w-auto"
+          />
+        </div>
         <Button
           type="button"
           variant="destructive"
