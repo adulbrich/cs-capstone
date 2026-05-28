@@ -33,7 +33,7 @@ export function ProjectRow({ project }: { project: ProjectSummary }) {
           </p>
         )}
         {project.publishedAt && (
-          <p className="mt-1 text-xs" style={{ color: "var(--text-tertiary)" }}>
+          <p className="mt-1 text-xs" style={{ color: "var(--text-secondary)" }}>
             {new Date(project.publishedAt).toLocaleDateString()}
           </p>
         )}

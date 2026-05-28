@@ -67,7 +67,7 @@ export function ProjectCard({ project }: { project: ProjectSummary }) {
           </p>
         )}
         {project.publishedAt && (
-          <p className="mt-2 text-xs" style={{ color: "var(--text-tertiary)" }}>
+          <p className="mt-2 text-xs" style={{ color: "var(--text-secondary)" }}>
             Published {new Date(project.publishedAt).toLocaleDateString()}
           </p>
         )}

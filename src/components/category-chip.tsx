@@ -13,7 +13,7 @@ export function CategoryChip({ category }: { category: Category }) {
         border: "1px solid var(--chip-line)",
       }}
     >
-      <span style={{ color: "var(--text-tertiary)" }}>{category.type}</span>
+      <span style={{ color: "var(--text-secondary)" }}>{category.type}</span>
       <span style={{ color: "var(--text-primary)" }}>{category.name}</span>
     </span>
   );
