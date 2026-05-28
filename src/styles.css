@@ -43,7 +43,7 @@
   --hero-b:               rgba(26, 17, 0, 0.08);
 
   /* Status */
-  --status-success:       #2E7D32;
+  --status-success:       #1B5E20;
   --status-success-bg:    rgba(46, 125, 50, 0.10);
   --status-warning:       #B84000;
   --status-warning-bg:    rgba(230, 81, 0, 0.10);
@@ -98,7 +98,6 @@
      white button text meets 4.5:1 before BrandProvider hydrates. */
   --brand-primary:        #EF5713;
   --brand-primary-dark:   #FF8C5A;
-  --primary:              #C04300;
   --brand-primary-tint:   rgba(239, 87, 19, 0.12);
 
   /* Surfaces — deeper base gives more range for the gradient */
@@ -141,7 +140,7 @@
   --card-foreground:             var(--text-primary);
   --popover:                     var(--surface-raised);
   --popover-foreground:          var(--text-primary);
-  --primary:                     var(--brand-primary);
+  --primary:                     #C04300;
   --primary-foreground:          #FFFFFF;
   --secondary:                   var(--surface-sunken);
   --secondary-foreground:        var(--text-primary);
