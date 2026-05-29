@@ -127,7 +127,7 @@ function UsersAdmin() {
               })
             }
           >
-            <SelectTrigger id="user-role" size="sm" className="mt-1 w-36">
+            <SelectTrigger id="user-role" className="mt-1 w-36">
               <SelectValue placeholder="All roles" />
             </SelectTrigger>
             <SelectContent>
