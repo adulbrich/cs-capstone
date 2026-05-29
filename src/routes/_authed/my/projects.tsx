@@ -44,7 +44,7 @@ function MyProjects() {
   const label = (s: string) => s.replace(/_/g, " ");
 
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:p-8">
+    <div className="mx-auto max-w-4xl px-4 py-6 md:p-8">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">My Projects</h1>
         <Button asChild size="sm">
@@ -98,7 +98,7 @@ function MyProjects() {
           </Link>
         ))}
       </div>
-      <div className="mt-4 space-y-2">
+      <div className="mt-6 flex flex-col gap-3">
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No projects in this view.

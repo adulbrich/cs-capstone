@@ -155,7 +155,7 @@ function AdminProjects() {
         </div>
         <div className="mb-2">{softDeleteToggle}</div>
       </div>
-      <div className="mt-4 space-y-2">
+      <div className="mt-6 flex flex-col gap-3">
         {rows.length === 0 ? (
           <p className="text-sm text-muted-foreground">
             No projects in this view.
