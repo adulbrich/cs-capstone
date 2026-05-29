@@ -102,4 +102,16 @@ describe("ProjectForm AI review", () => {
     fireEvent.click(getByText("Review with AI"));
     await findByText("No improvements suggested.");
   });
+
+  it("shows an error and re-enables the button when the review fails", async () => {
+    mockedReview.mockRejectedValue(new Error("Bedrock unavailable"));
+
+    const { getByText, findByText } = renderForm();
+    fireEvent.click(getByText("Review with AI"));
+
+    await findByText("Bedrock unavailable");
+    expect((getByText("Review with AI") as HTMLButtonElement).disabled).toBe(
+      false,
+    );
+  });
 });

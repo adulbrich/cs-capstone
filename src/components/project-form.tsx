@@ -135,6 +135,8 @@ export function ProjectForm({
     if (!projectId) return;
     setReviewError(null);
     setReviewState("loading");
+    // Clear any prior suggestions so a fresh review never shows stale ones.
+    setSuggestions({});
     try {
       const v = form.state.values;
       const result = await reviewProject({
@@ -152,13 +154,20 @@ export function ProjectForm({
         },
       });
       setSuggestions(result.suggestions);
-      setReviewState(result.reviewedFields.length === 0 ? "empty" : "idle");
+      // Key the empty state off what we will actually render, not the server's
+      // reviewedFields list, so the message is correct even if they diverge.
+      setReviewState(
+        Object.keys(result.suggestions).length === 0 ? "empty" : "idle",
+      );
     } catch (err) {
       setReviewError((err as Error)?.message || "AI review failed");
       setReviewState("idle");
     }
   }
 
+  // setFieldValue is the supported way to write a named field from outside its
+  // form.Field render prop; validation runs on submit, so bypassing the
+  // per-field onChange pipeline here is intentional and harmless.
   function applyField(field: ImprovableField) {
     const s = suggestions[field];
     if (!s) return;
@@ -212,14 +221,16 @@ export function ProjectForm({
               </Button>
             </div>
           </div>
-          {reviewError && (
-            <p className="mt-2 text-sm text-destructive">{reviewError}</p>
-          )}
-          {reviewState === "empty" && (
-            <p className="mt-2 text-sm text-muted-foreground">
-              No improvements suggested.
-            </p>
-          )}
+          <output className="block">
+            {reviewError && (
+              <p className="mt-2 text-sm text-destructive">{reviewError}</p>
+            )}
+            {reviewState === "empty" && (
+              <p className="mt-2 text-sm text-muted-foreground">
+                No improvements suggested.
+              </p>
+            )}
+          </output>
         </div>
       )}
       <Field
@@ -440,6 +451,7 @@ function Field({
                 size="sm"
                 className="mt-2"
                 onClick={onApply}
+                aria-label={`Apply suggestion for ${label}`}
               >
                 Apply
               </Button>
