@@ -38,9 +38,9 @@ function ProjectsList() {
   const search = Route.useSearch();
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
-    <div className="mx-auto max-w-3xl px-4 py-6 md:p-8">
+    <div className="mx-auto max-w-7xl px-4 py-6 md:p-8">
       <h1 className="text-2xl font-semibold">Projects</h1>
-      <div className="mt-4">
+      <div className="mt-4 max-w-4xl">
         <ProjectsFilterBar
           q={search.q}
           categories={search.categories}
@@ -52,8 +52,8 @@ function ProjectsList() {
       <div
         className={
           search.view === "card"
-            ? "mt-6 grid gap-4 md:grid-cols-2 lg:grid-cols-3"
-            : "mt-6 space-y-2"
+            ? "mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4"
+            : "mt-6 flex max-w-4xl flex-col gap-3"
         }
       >
         {rows.length === 0 ? (
@@ -66,7 +66,7 @@ function ProjectsList() {
           ))
         )}
       </div>
-      <div className="mt-6 flex items-center justify-between text-sm">
+      <div className="mt-6 flex max-w-4xl items-center justify-between text-sm">
         <Link
           to="/projects"
           search={(prev) => ({ ...prev, page: Math.max(1, page - 1) })}
