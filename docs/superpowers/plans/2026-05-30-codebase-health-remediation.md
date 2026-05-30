@@ -9,7 +9,7 @@
 **Tech Stack:** TanStack Start (React 19 SSR), TanStack Router/Query/Form, Drizzle ORM + Postgres, Better Auth, Biome 2.4.5 via Ultracite, Vitest 4, Playwright (a11y), AWS Bedrock + S3.
 
 **Decisions baked in from the maintainer (2026-05-30):**
-1. Node target is **25** (nvmrc, nixpacks, CI). Local toolchain is 24.15.0, so build/test are verified on 24.15; 25 is the declared standard.
+1. Node target is the **latest LTS, 24.16.0** (nvmrc, nixpacks, CI). Maintainer uses nvm. Local toolchain is 24.15.0; build/test verified there.
 2. **Keep `"latest"`** version specifiers for `@tanstack/*` and nitro for now. No dependency pinning task.
 3. Validate the CI workflow locally with **`act`** (installed) before committing.
 4. Docker DB + S3 are running, so build and migrations can be exercised.
@@ -192,7 +192,7 @@ and set `dbCredentials: { url: databaseUrl }`.
 
 ## Phase 4: Node version
 
-### Task 8: Declare Node 25
+### Task 8: Declare Node 24 LTS (24.16.0)
 
 **Files:** Modify `package.json`, `nixpacks.toml`; create `.nvmrc`.
 
@@ -200,14 +200,14 @@ and set `dbCredentials: { url: databaseUrl }`.
 
 ```json
   "engines": {
-    "node": ">=25"
+    "node": ">=24"
   },
 ```
 
-- [ ] **Step 2:** Create `.nvmrc` with contents `25`.
-- [ ] **Step 3:** In `nixpacks.toml`, change `nixPkgs = ["nodejs_22"]` to `nixPkgs = ["nodejs_25"]`.
-- [ ] **Step 4:** Verify build still works on the local toolchain (24.15.0): `npm run build`. Expected: exit 0 (an `EBADENGINE` warning locally is expected and harmless; CI uses 25).
-- [ ] **Step 5:** Commit `package.json .nvmrc nixpacks.toml`: `target node 25 via engines, nvmrc, and nixpacks`.
+- [ ] **Step 2:** Create `.nvmrc` with contents `24.16.0`.
+- [ ] **Step 3:** In `nixpacks.toml`, change `nixPkgs = ["nodejs_22"]` to `nixPkgs = ["nodejs_24"]`.
+- [ ] **Step 4:** Verify build still works on the local toolchain (24.15.0): `npm run build`. Expected: exit 0.
+- [ ] **Step 5:** Commit `package.json .nvmrc nixpacks.toml`: `target node 24 lts via engines, nvmrc, and nixpacks`.
 
 ---
 
@@ -234,7 +234,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with:
-          node-version: 25
+          node-version: 24.16.0
           cache: npm
       - run: npm ci
       - run: npm run check
@@ -244,7 +244,7 @@ jobs:
 ```
 
 - [ ] **Step 2:** Confirm every step passes locally first: `npm run check && npm run typecheck && npm test && npm run build`. Expected: all succeed.
-- [ ] **Step 3:** Dry-run the workflow with `act`: `act pull_request -n` (lists jobs/steps) then `act pull_request --job verify` to execute. If `act` cannot pull the Node 25 runner image or hits Docker resource limits, record the limitation; the local `npm` gate in Step 2 is the authoritative check.
+- [ ] **Step 3:** Dry-run the workflow with `act`: `act pull_request -n` (lists jobs/steps) then `act pull_request --job verify` to execute. If `act` cannot pull the runner image or hits Docker resource limits, record the limitation; the local `npm` gate in Step 2 is the authoritative check.
 - [ ] **Step 4:** Commit `.github/workflows/ci.yml`: `add CI workflow for check, typecheck, test, and build`.
 
 ---
