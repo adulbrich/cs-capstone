@@ -32,6 +32,11 @@ describe("buildUserMessage", () => {
     expect(msg).not.toContain('name="description"');
     expect(msg).not.toContain('name="problemStatement"');
   });
+
+  it("returns an empty string when all fields are empty or whitespace", () => {
+    expect(buildUserMessage({})).toBe("");
+    expect(buildUserMessage({ description: "   ", title: "" })).toBe("");
+  });
 });
 
 describe("parseReviewResponse", () => {
@@ -97,5 +102,13 @@ describe("runProjectReview", () => {
     expect(call.toolConfig.tools[0].toolSpec.name).toBe(TOOL_NAME);
     expect(call.messages[0].content[0].text).toContain("old title");
     expect(result.suggestions.title?.suggestion).toBe("Sharper Title");
+  });
+
+  it("returns an empty result without calling the model when there is nothing to review", async () => {
+    const invoke = vi.fn();
+    const result = await runProjectReview({ description: "   " }, invoke);
+    expect(invoke).not.toHaveBeenCalled();
+    expect(result.reviewedFields).toEqual([]);
+    expect(result.suggestions).toEqual({});
   });
 });

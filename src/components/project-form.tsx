@@ -132,6 +132,8 @@ export function ProjectForm({
   });
 
   async function handleReview() {
+    // The edit route always supplies projectId; guard for the future
+    // new-project path where the button could appear before a project exists.
     if (!projectId) return;
     setReviewError(null);
     setReviewState("loading");

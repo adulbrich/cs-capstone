@@ -44,6 +44,7 @@ export const reviewToolSpec = {
     inputSchema: {
       json: {
         type: "object",
+        additionalProperties: false,
         properties: Object.fromEntries(
           IMPROVABLE_FIELDS.map((field) => [field, fieldProperty]),
         ),
@@ -86,9 +87,14 @@ export function parseReviewResponse(
   const content = response.output?.message?.content ?? [];
   const toolBlock = content.find((block) => block.toolUse?.name === TOOL_NAME);
   if (!toolBlock?.toolUse) {
-    throw new Error("Model did not return suggestions");
+    throw new Error("Couldn't generate suggestions, please try again.");
   }
-  const parsed = reviewToolInputSchema.parse(toolBlock.toolUse.input);
+  let parsed: z.infer<typeof reviewToolInputSchema>;
+  try {
+    parsed = reviewToolInputSchema.parse(toolBlock.toolUse.input);
+  } catch {
+    throw new Error("Couldn't generate suggestions, please try again.");
+  }
 
   const suggestions: ReviewResult["suggestions"] = {};
   const reviewedFields: ImprovableField[] = [];
@@ -107,6 +113,11 @@ export async function runProjectReview(
   invoke: ConverseFn = bedrockConverse,
 ): Promise<ReviewResult> {
   const userMessage = buildUserMessage(fields);
+  // Nothing to review: skip the (paid) Bedrock call, which also rejects empty
+  // text blocks with a ValidationException.
+  if (!userMessage) {
+    return { suggestions: {}, model: MODEL_ID, reviewedFields: [] };
+  }
   const response = await invoke({
     modelId: MODEL_ID,
     system: [{ text: SYSTEM_PROMPT }],
