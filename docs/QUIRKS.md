@@ -321,22 +321,36 @@ Every workflow / mutation server function in `src/server/_internal/` exposes an 
 
 ---
 
-## Biome and code style
+## Biome / Ultracite and code style
+
+Linting and formatting run through **Ultracite** (a strict Biome preset). `biome.json` extends `ultracite/biome/core` + `ultracite/biome/react`. `npm run check` runs `ultracite check`; `npm run format` runs `ultracite fix`.
 
 ### Hard rules
 
 - 2-space indent.
 - Double quotes for JS / TS strings.
 - Imports auto-sorted by the Biome assist organize-imports rule. Don't fight it.
-- All files under `src/` are checked. Files outside (`scripts/`, top-level configs) are excluded by `biome.json`.
-- `npm run check` must be clean before committing. Run `npx biome format --write` or `npx biome check --write` to auto-fix.
+- Everything is checked except generated / tool-managed paths excluded in `biome.json`: `src/routeTree.gen.ts`, `src/styles.css`, `scripts/`, and `drizzle/`. (Biome respects `.gitignore` via `vcs.useIgnoreFile`, so `playwright-report/` etc. are skipped too.)
+- `npm run check` must be clean before committing. Run `npm run format` (or `npx ultracite fix`) to auto-fix.
+
+### Rules deliberately relaxed or deferred
+
+Tuned in `biome.json` rather than fought file-by-file:
+
+- **Disabled (idiom / framework conflict):** `noVoid` (intentional fire-and-forget `void promise()`), `useFilenamingConvention` under `src/routes/**` (TanStack `$param` / `__root` files), plus inline ignores for `noNamespaceImport` (drizzle `import * as schema`, shadcn) and `noBarrelFile` (the schema re-export).
+- **Relaxed in tests** (`*.test.ts(x)`, `__tests__/`, `src/test/`): `useTopLevelRegex`, `noEmptyBlockStatements`, `useAwait`, `noNonNullAssertion`.
+- **Deferred (need real a11y/UX work, tracked as findings):** `useImageSize` (add intrinsic image dimensions) and `noAlert` (replace `alert()`/`confirm()` with proper UI). Re-enable when addressed.
+
+### Do not run `biome check --write --unsafe` blindly
+
+The unsafe autofix rewrote `viewer!.id` to `viewer?.id` (changing a throw into a silent `undefined`) and converted a `type` alias to an `interface` (which broke a `Record<string, unknown>` cast). Review unsafe fixes diff-by-diff; prefer `npm run format` (safe fixes only).
 
 ### Soft rules / project conventions
 
 - **No emdashes** anywhere in prose, comments, commit messages, or string literals. Also no `--` substitutes used as sentence dashes (hyphens in compound words like `read-only` are fine). Use commas, colons, semicolons, parens, or new sentences.
 - **No emojis** unless explicitly requested by the user.
 - **Lowercase imperative commit messages**, no Conventional Commits prefix. Examples: `add foo`, `fix bar in baz`, `move x into _internal/`.
-- **Co-author trailer** on every assistant-authored commit: `Co-Authored-By: Claude Opus 4.7 <noreply@anthropic.com>`. Use a HEREDOC to keep the multi-line body intact.
+- **Co-author trailer** on every assistant-authored commit: `Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>`. Use a HEREDOC to keep the multi-line body intact.
 - **Component file naming** is `kebab-case.tsx` (`project-card.tsx`, `status-badge.tsx`).
 - **`#/` import alias** for cross-directory imports inside `src/` (defined in `package.json`). Avoid `../../../...` chains.
 
@@ -372,7 +386,7 @@ The user has explicitly consented to assistant commits landing on `main` for thi
 | `src/server/*.ts` | createServerFn wrappers (Zod schemas + dynamic-import handlers). Client-importable. |
 | `src/server/_internal/*.ts` | Impl + `*As(viewer, ...)` + `*ForCurrentUser(...)` helpers. Server-only. |
 | `src/server/__tests__/*.integration.test.ts` | Integration tests against docker Postgres. |
-| `src/components/*.tsx` | Plain Tailwind components. shadcn is installed but NOT used yet. |
+| `src/components/*.tsx` | App components built on shadcn/ui + Radix primitives (see `src/components/ui/`). |
 | `src/routes/...` | TanStack file-based routes. `_layout.tsx` are pathless. `routeTree.gen.ts` is auto-generated; do not hand-edit. |
 | `src/db/schema.ts` | Hand-written Drizzle schema for app tables. |
 | `src/db/auth-schema.ts` | Better Auth CLI-generated tables. Do not hand-edit; preserved through regen via `additionalFields`. |
