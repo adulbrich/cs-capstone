@@ -28,6 +28,9 @@ function NewProject() {
                 ...values,
                 programId: values.programId || null,
                 notes: isStaff ? values.notes || null : null,
+                proposerEmail: isStaff
+                  ? values.proposerEmail || null
+                  : undefined,
               },
             });
             if (pendingImage) {
@@ -48,6 +51,7 @@ function NewProject() {
           }}
           showCategories={isStaff}
           showNotes={isStaff}
+          showProposer={isStaff}
           submitLabel="Create draft"
         />
       </div>

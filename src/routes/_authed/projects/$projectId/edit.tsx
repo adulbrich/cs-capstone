@@ -6,7 +6,7 @@ import {
   setProjectCategories,
 } from "#/server/categories";
 import { updateProject } from "#/server/projects";
-import { getProject } from "#/server/projects-queries";
+import { getProject, getProposerEmailForEdit } from "#/server/projects-queries";
 import { uploadProjectImage } from "#/server/uploads";
 
 export const Route = createFileRoute("/_authed/projects/$projectId/edit")({
@@ -22,14 +22,24 @@ export const Route = createFileRoute("/_authed/projects/$projectId/edit")({
     const { rows: categoryRows } = await listProjectCategories({
       data: { projectId: params.projectId },
     });
-    return { ...data, categoryIds: categoryRows.map((c) => c.id) };
+    const proposerEmail = data.viewerIsStaff
+      ? await getProposerEmailForEdit({
+          data: { projectId: params.projectId },
+        })
+      : "";
+    return {
+      ...data,
+      categoryIds: categoryRows.map((c) => c.id),
+      proposerEmail,
+    };
   },
   component: EditProject,
 });
 
 function EditProject() {
   const navigate = useNavigate();
-  const { project, viewerIsStaff, categoryIds } = Route.useLoaderData();
+  const { project, viewerIsStaff, categoryIds, proposerEmail } =
+    Route.useLoaderData();
   if (!project) {
     return null;
   }
@@ -54,6 +64,7 @@ function EditProject() {
             licenseRestrictions: (project.licenseRestrictions as string) ?? "",
             programId: (project.programId as string) ?? "",
             notes: (project.notes as string) ?? "",
+            proposerEmail,
           }}
           initialCategoryIds={categoryIds}
           onSubmit={async (values, nextCategoryIds, pendingImage) => {
@@ -63,6 +74,9 @@ function EditProject() {
                 ...values,
                 programId: values.programId || null,
                 notes: viewerIsStaff ? values.notes || null : null,
+                proposerEmail: viewerIsStaff
+                  ? values.proposerEmail || null
+                  : undefined,
               },
             });
             if (pendingImage) {
@@ -84,6 +98,7 @@ function EditProject() {
           projectId={projectId}
           showCategories={viewerIsStaff}
           showNotes={viewerIsStaff}
+          showProposer={viewerIsStaff}
           submitLabel="Save"
         />
       </div>
