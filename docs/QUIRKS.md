@@ -246,8 +246,8 @@ The cast is the documented Drizzle idiom to avoid a circular initialization erro
 | Rule | Where it lives |
 | --- | --- |
 | `CASCADE` | Pure junction tables (`program_instructors`, `project_collaborators`, `project_bookmarks`, `project_categories`), `session`, `account`, `notifications`. |
-| `RESTRICT` | Content authorship (`projects.proposer_id`, `project_comments.author_id`, `project_bids.student_id`, `project_status_history.changed_by`, `project_assignments.assigned_by`). A user with content cannot be hard-deleted. |
-| `SET NULL` | `inventory_requests.reviewed_by`, `projects.program_id` (from Spec 3). Review attribution and program assignment can be lost without losing the record. |
+| `RESTRICT` | Content authorship (`project_comments.author_id`, `project_bids.student_id`, `project_status_history.changed_by`, `project_assignments.assigned_by`). A user with this content cannot be hard-deleted. |
+| `SET NULL` | `inventory_requests.reviewed_by`, `projects.program_id` (from Spec 3), `projects.proposer_id`. Review attribution and program assignment can be lost without losing the record. A deleted proposer's `proposer_id` nulls out while `proposer_email` retains the link for re-linking (see "Projects" below). |
 
 Cascade rules are encoded in the schema, not in application code. Never recompute them at runtime.
 
@@ -301,6 +301,10 @@ Older docs show `test.poolOptions.forks.singleFork: true`. Vitest 4 removed that
 - `Tests closed successfully but something prevents Vite server from exiting` — connection-lingering, no impact.
 
 Tests still pass. Ignore both.
+
+### Radix Popover / cmdk need jsdom polyfills
+
+Component tests that mount a Radix Popover or a cmdk `Command` (for example the proposer account picker) throw on render unless you stub the DOM APIs jsdom omits. Add them in a `beforeAll`: `Element.prototype.scrollIntoView`, `hasPointerCapture`, `setPointerCapture`, `releasePointerCapture` (each `vi.fn()`), plus a no-op `globalThis.ResizeObserver` class. Also, `PopoverContent` only mounts when the popover is open, so click the trigger before querying anything inside it. The canonical setup is in `src/test/proposer-picker.test.tsx`. Most form tests dodge this by mocking the heavy Radix children instead (see `src/test/project-form-ai-review.test.tsx`).
 
 ### `as ReturnType<typeof vi.fn>` triggers TS2352
 
@@ -533,3 +537,15 @@ Every status change to an inventory item must go through `src/server/_internal/i
 ### submitCart is lock-first
 
 `submitCartAs` locks each cart item with `SELECT FOR UPDATE` and re-checks `status === "available"` before treating it as a survivor. The `inventoryRequests` envelope is inserted only after the lock phase confirms at least one survivor, so an all-race path never leaves an orphaned request row. Items that lost the race are returned in the `skipped` array with reason `"no_longer_available"`.
+
+## Projects
+
+### Staff-only columns leak unless stripped in `stripStaffOnlyFields`
+
+`getProjectImpl` (`src/server/_internal/projects-queries.ts`) returns the WHOLE project row through `stripStaffOnlyFields(project, viewer)`, and that object is serialized into the public SSR loader payload of `/projects/$id` for any viewer, including anonymous ones. A new staff-only column does NOT stay private just because no component renders it: it rides the payload unless you null it for non-staff inside `stripStaffOnlyFields` (`src/lib/project-visibility.ts`). Today `notes` and `proposer_email` are stripped there. Add any future sensitive column to that function and verify with a non-staff read before shipping.
+
+### Proposer linking is by email; `proposer_id` is canonical
+
+A project's proposer is either linked to an account (`proposer_id`, a nullable FK) or pending (`proposer_email` set with no account yet). Email is the link key; `proposer_id` is the source of truth once an account exists. Staff set it through the proposer email field on the project form; the server resolves the email to an account id on every write via `resolveProposerId` (`src/server/_internal/projects.ts`), and a non-staff request carrying `proposer_email` is ignored, not honored. `proposer_id` is never accepted from the client.
+
+Two emails, do not conflate them: `proposer_email` is the private link key (stripped from public reads, see above); `contact_email` is a separate, manually entered, publicly visible field. The edit form prefills `proposer_email` from the linked account's CURRENT email (`getProposerEmailForEdit`) so an untouched staff save re-resolves to the same proposer; a blank email on create defaults the proposer to the creator, while clearing it on edit is an explicit unlink. OSU ONID auto-link (a sign-in `databaseHook` that back-links by `proposer_email`) is future work; see `docs/superpowers/specs/2026-06-07-proposer-account-linking-design.md`.
