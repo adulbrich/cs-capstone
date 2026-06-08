@@ -89,9 +89,10 @@ export const projects = pgTable(
     /** Staff-visible only; never returned in public queries. */
     notes: text("notes"),
 
-    proposerId: text("proposer_id")
-      .references(() => user.id, { onDelete: "restrict" })
-      .notNull(),
+    proposerId: text("proposer_id").references(() => user.id, {
+      onDelete: "set null",
+    }),
+    proposerEmail: text("proposer_email"),
     programId: uuid("program_id").references(() => programs.id, {
       onDelete: "set null",
     }),
@@ -120,6 +121,7 @@ export const projects = pgTable(
     index("projects_status_idx").on(t.status),
     index("projects_deleted_at_idx").on(t.deletedAt),
     index("projects_proposer_id_idx").on(t.proposerId),
+    index("projects_proposer_email_idx").on(t.proposerEmail),
     index("projects_program_id_idx").on(t.programId),
     index("projects_published_at_idx").on(t.publishedAt),
   ]
