@@ -118,3 +118,28 @@ describe("project workflow", () => {
     expect(row.deletedAt).not.toBeNull();
   });
 });
+
+describe("transitions on an unlinked (null proposer) project", () => {
+  it("does not throw and writes no proposer notification", async () => {
+    const staff = await makeUser(`staff-null-${Date.now()}@x.com`, "admin");
+    const [project] = await db
+      .insert(projects)
+      .values({
+        title: "Unlinked",
+        proposerId: null,
+        proposerEmail: "ghost@example.edu",
+        status: "submitted",
+      })
+      .returning();
+
+    await expect(
+      performTransitionAs(staff, project.id, "approved")
+    ).resolves.toMatchObject({ status: "approved" });
+
+    const notes = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.link, `/projects/${project.id}`));
+    expect(notes).toHaveLength(0);
+  });
+});

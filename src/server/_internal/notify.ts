@@ -6,7 +6,7 @@ type Tx = Parameters<Parameters<typeof Db.transaction>[0]>[0];
 
 interface Project {
   id: string;
-  proposerId: string;
+  proposerId: string | null;
   title: string;
 }
 
@@ -25,7 +25,7 @@ export async function recordStatusChangeNotifications(
   newStatus: string,
   actorId: string
 ): Promise<void> {
-  if (project.proposerId === actorId) {
+  if (!project.proposerId || project.proposerId === actorId) {
     return;
   }
   await tx.insert(notifications).values({
@@ -43,7 +43,7 @@ export async function recordSoftDeleteNotification(
   action: "soft-deleted" | "restored" | "hard-deleted",
   actorId: string
 ): Promise<void> {
-  if (project.proposerId === actorId) {
+  if (!project.proposerId || project.proposerId === actorId) {
     return;
   }
   await tx.insert(notifications).values({
@@ -65,7 +65,7 @@ export async function recordCommentNotifications(
   }
 
   const recipients = new Set<string>();
-  if (comment.authorId !== project.proposerId) {
+  if (project.proposerId && comment.authorId !== project.proposerId) {
     recipients.add(project.proposerId);
   }
 

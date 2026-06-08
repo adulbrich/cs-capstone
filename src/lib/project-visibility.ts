@@ -5,7 +5,7 @@ export type Viewer =
 
 export type VisibleProject = {
   id: string;
-  proposerId: string;
+  proposerId: string | null;
   status: string;
   deletedAt: Date | null;
   notes: string | null;
@@ -68,7 +68,7 @@ export function stripStaffOnlyFields<T extends VisibleProject>(
   if (isStaff(viewer)) {
     return project;
   }
-  return { ...project, notes: null };
+  return { ...project, notes: null, proposerEmail: null };
 }
 
 /**
