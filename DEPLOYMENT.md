@@ -192,9 +192,8 @@ The workflow:
 6. Updates the service to the new task definition, scales to 1, and waits for
    the service to stabilize.
 
-The first run is slower because the arm64 image is built under emulation. If
-your repo has arm64 hosted runners, switch `runs-on` to `ubuntu-24.04-arm` and
-remove the "Set up QEMU" step in the workflow for a much faster native build.
+The workflow builds natively on a `ubuntu-24.04-arm` runner (free on public
+repos), matching the arm64 Fargate task — no QEMU cross-build involved.
 
 When it finishes, open `app_url` in a browser. You should see the app over
 HTTPS.

@@ -27,18 +27,11 @@ env:
 
 jobs:
   deploy:
-    # ubuntu-latest is available on every plan. The linux/arm64 image is built
-    # via QEMU emulation (slower on the first run; the gha cache makes repeats
-    # fast). If your repo HAS arm64 hosted runners, set `runs-on: ubuntu-24.04-arm`
-    # and delete the "Set up QEMU" step for a much faster native build.
-    runs-on: ubuntu-latest
+    # Native arm64 runner (free on public repos), matching the arm64 Fargate
+    # task/image — no QEMU cross-build needed.
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
-        with:
-          platforms: arm64
 
       - name: Configure AWS credentials
         uses: aws-actions/configure-aws-credentials@7474bc4690e29a8392af63c5b98e7449536d5c3a # v4
