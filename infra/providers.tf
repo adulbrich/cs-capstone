@@ -16,7 +16,7 @@ terraform {
   # uncomment. AWS provider v6 + Terraform 1.10+ use S3-native locking via
   # `use_lockfile`, so no DynamoDB table is required.
   backend "s3" {
-    bucket       = "cs-capstone-tfstate"
+    bucket       = "eecs-capstone-tfstate"
     key          = "prod/terraform.tfstate"
     region       = "us-west-2"
     encrypt      = true

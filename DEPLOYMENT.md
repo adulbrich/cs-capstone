@@ -27,7 +27,7 @@ Internet ──► CloudFront "app"  ──(VPC origin)──► internal ALB �
   served through a second CloudFront distribution via Origin Access Control.
 - **Secrets/identity**: app credentials come from the ECS task role (no static
   keys). Config and secrets live in Secrets Manager and the task definition.
-- **Region**: `us-west-2`. **Project prefix**: `cs-capstone` (both configurable
+- **Region**: `us-west-2`. **Project prefix**: `eecs-capstone` (both configurable
   in `infra/variables.tf`). All resource names below assume these defaults.
 
 ---
@@ -73,18 +73,18 @@ State contains generated database and auth secrets, so it must be private.
 
 ```bash
 aws --profile aws-capstone1 s3api create-bucket \
-  --bucket cs-capstone-tfstate \
+  --bucket eecs-capstone-tfstate \
   --region us-west-2 \
   --create-bucket-configuration LocationConstraint=us-west-2
 aws --profile aws-capstone1 s3api put-bucket-versioning \
-  --bucket cs-capstone-tfstate \
+  --bucket eecs-capstone-tfstate \
   --versioning-configuration Status=Enabled
-aws --profile aws-capstone1 s3api put-bucket-encryption --bucket cs-capstone-tfstate \
+aws --profile aws-capstone1 s3api put-bucket-encryption --bucket eecs-capstone-tfstate \
   --server-side-encryption-configuration \
   '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 # Tag it like everything else (this bucket is created outside Terraform)
-aws --profile aws-capstone1 s3api put-bucket-tagging --bucket cs-capstone-tfstate \
-  --tagging 'TagSet=[{Key=Project,Value=cs-capstone},{Key=ManagedBy,Value=manual}]'
+aws --profile aws-capstone1 s3api put-bucket-tagging --bucket eecs-capstone-tfstate \
+  --tagging 'TagSet=[{Key=Project,Value=eecs-capstone},{Key=ManagedBy,Value=manual}]'
 ```
 
 Then uncomment the `backend "s3"` block in
@@ -102,7 +102,7 @@ Edit `terraform.tfvars`:
 
 ```hcl
 github_owner     = "your-org-or-user"
-github_repo      = "cs-capstone"
+github_repo      = "eecs-capstone"
 github_client_id = "Iv1.xxxxxxxx"                # from step 3.1 (not secret)
 ```
 
@@ -149,7 +149,7 @@ Terraform seeds a placeholder. Replace it with the real secret from step 3.1:
 
 ```bash
 aws --profile aws-capstone1 secretsmanager put-secret-value \
-  --secret-id cs-capstone/github-client-secret \
+  --secret-id eecs-capstone/github-client-secret \
   --secret-string 'YOUR_REAL_GITHUB_OAUTH_CLIENT_SECRET' \
   --region us-west-2
 ```
@@ -212,7 +212,7 @@ CloudWatch captures instead of an inbox. Once the first deploy (section 5)
 has run and someone has signed up, pull their link from the logs:
 
 ```bash
-aws --profile aws-capstone1 logs tail /ecs/cs-capstone --since 5m --region us-west-2 | grep -A2 "VERIFY EMAIL"
+aws --profile aws-capstone1 logs tail /ecs/eecs-capstone --since 5m --region us-west-2 | grep -A2 "VERIFY EMAIL"
 ```
 
 1. Each future admin signs up through the app UI with email and password.
@@ -222,8 +222,8 @@ aws --profile aws-capstone1 logs tail /ecs/cs-capstone --since 5m --region us-we
    private database:
 
 ```bash
-CLUSTER=cs-capstone
-SERVICE=cs-capstone
+CLUSTER=eecs-capstone
+SERVICE=eecs-capstone
 TASKDEF=$(aws --profile aws-capstone1 ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
   --query 'services[0].taskDefinition' --output text --region us-west-2)
 NETCFG=$(aws --profile aws-capstone1 ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
@@ -265,7 +265,7 @@ process. Migrations run automatically before the new code serves traffic.
 ### View logs
 
 ```bash
-aws --profile aws-capstone1 logs tail /ecs/cs-capstone --follow --region us-west-2
+aws --profile aws-capstone1 logs tail /ecs/eecs-capstone --follow --region us-west-2
 ```
 
 ### Roll back
@@ -274,19 +274,19 @@ Re-run the **Deploy** workflow from an earlier commit, or point the service at a
 previous task definition revision:
 
 ```bash
-aws --profile aws-capstone1 ecs update-service --cluster cs-capstone --service cs-capstone \
-  --task-definition cs-capstone:<previous-revision> --region us-west-2
-aws --profile aws-capstone1 ecs wait services-stable --cluster cs-capstone --service cs-capstone --region us-west-2
+aws --profile aws-capstone1 ecs update-service --cluster eecs-capstone --service eecs-capstone \
+  --task-definition eecs-capstone:<previous-revision> --region us-west-2
+aws --profile aws-capstone1 ecs wait services-stable --cluster eecs-capstone --service eecs-capstone --region us-west-2
 ```
 
 List revisions with
-`aws --profile aws-capstone1 ecs list-task-definitions --family-prefix cs-capstone`.
+`aws --profile aws-capstone1 ecs list-task-definitions --family-prefix eecs-capstone`.
 
 ### Update a secret or config
 
 - Secrets (DATABASE_URL, BETTER_AUTH_SECRET, GITHUB_CLIENT_SECRET): update in
   Secrets Manager, then force a new deployment so tasks pick it up:
-  `aws --profile aws-capstone1 ecs update-service --cluster cs-capstone --service cs-capstone --force-new-deployment --region us-west-2`.
+  `aws --profile aws-capstone1 ecs update-service --cluster eecs-capstone --service eecs-capstone --force-new-deployment --region us-west-2`.
 - Non-secret env (model ID, email from, etc.): change the value in
   `infra/ecs.tf`, `terraform apply` to register a new task-def revision, then
   run the **Deploy** workflow (which inherits the latest task-def env).
@@ -372,10 +372,10 @@ RDS has deletion protection and takes a final snapshot, and S3 must be emptied
 first. To fully destroy:
 
 1. Empty the assets bucket (find its name with
-   `aws --profile aws-capstone1 s3 ls | grep cs-capstone-assets`):
+   `aws --profile aws-capstone1 s3 ls | grep eecs-capstone-assets`):
 
    ```bash
-   aws --profile aws-capstone1 s3 rm "s3://cs-capstone-assets-<account-id>" --recursive
+   aws --profile aws-capstone1 s3 rm "s3://eecs-capstone-assets-<account-id>" --recursive
    ```
 
 2. Disable RDS deletion protection: set `deletion_protection = false` in
@@ -388,8 +388,8 @@ first. To fully destroy:
    ```
 
 The CloudFront VPC origin again takes 15 to 30+ minutes to delete. RDS writes a
-final snapshot named `cs-capstone-db-final` (delete it separately if you do not
-want it). The Terraform state bucket (`cs-capstone-tfstate`) is not managed by
+final snapshot named `eecs-capstone-db-final` (delete it separately if you do not
+want it). The Terraform state bucket (`eecs-capstone-tfstate`) is not managed by
 this config; delete it manually if you are done with the project.
 
 ---
@@ -398,13 +398,13 @@ this config; delete it manually if you are done with the project.
 
 **Key names (defaults):**
 
-- Region: `us-west-2`, project prefix: `cs-capstone`
-- ECS cluster/service: `cs-capstone` / `cs-capstone`
-- ECR repo: `cs-capstone`
-- Secrets: `cs-capstone/database-url`, `cs-capstone/better-auth-secret`,
-  `cs-capstone/github-client-secret`
-- SSM: `/cs-capstone/ASSETS_PUBLIC_BASE`
-- Log group: `/ecs/cs-capstone`
+- Region: `us-west-2`, project prefix: `eecs-capstone`
+- ECS cluster/service: `eecs-capstone` / `eecs-capstone`
+- ECR repo: `eecs-capstone`
+- Secrets: `eecs-capstone/database-url`, `eecs-capstone/better-auth-secret`,
+  `eecs-capstone/github-client-secret`
+- SSM: `/eecs-capstone/ASSETS_PUBLIC_BASE`
+- Log group: `/ecs/eecs-capstone`
 
 **Runtime environment (set in the task definition, `infra/ecs.tf`):**
 

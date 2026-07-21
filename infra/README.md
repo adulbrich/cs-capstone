@@ -16,7 +16,7 @@ See the full design in `../.claude/plans/` (the approved deployment plan).
 ## First-time setup
 
 1. **Remote state (once):** create a private, versioned, encrypted S3 bucket
-   (e.g. `cs-capstone-tfstate`), then uncomment the `backend "s3"` block in
+   (e.g. `eecs-capstone-tfstate`), then uncomment the `backend "s3"` block in
    `providers.tf`. State holds generated DB/auth secrets, so keep it private.
 2. `cp terraform.tfvars.example terraform.tfvars` and fill in `github_owner`
    and `github_repo`.
@@ -29,7 +29,7 @@ See the full design in `../.claude/plans/` (the approved deployment plan).
 ## After apply
 
 - Set the real GitHub OAuth client secret:
-  `aws --profile aws-capstone1 secretsmanager put-secret-value --secret-id cs-capstone/github-client-secret --secret-string '<secret>'`
+  `aws --profile aws-capstone1 secretsmanager put-secret-value --secret-id eecs-capstone/github-client-secret --secret-string '<secret>'`
 - Point the GitHub OAuth app callback at the `app_url` output.
 - Run the **Deploy** GitHub Actions workflow to build/push the first image,
   migrate, and scale the service to 1.
@@ -41,16 +41,20 @@ In a shared account, every resource is associated with this project two ways:
 - **Tags:** the provider's `default_tags` stamps `Project`, `Environment`,
   `ManagedBy`, and `Repository` onto every taggable resource automatically.
   Filter the AWS console, Resource Groups, or Cost Explorer by `Project =
-  cs-capstone` to see (or bill) only this project. Most resources also carry an
+  eecs-capstone` to see (or bill) only this project. Most resources also carry an
   explicit `Name` tag for a readable console listing.
 - **Names:** every resource name is prefixed with `var.project` (for example
-  `cs-capstone-alb`, `cs-capstone-ecs-task`). The cluster, service, ECR repo,
-  and task family are named exactly `cs-capstone`.
+  `eecs-capstone-alb`, `eecs-capstone-ecs-task`). The cluster, service, ECR repo,
+  and task family are named exactly `eecs-capstone`.
 
 To rename the project, change `var.project`. Note that the deploy workflow
 (`.github/workflows/deploy.yml`, the `PROJECT` env) and `DEPLOYMENT.md` hardcode
-`cs-capstone` for the cluster/service/ECR/secret/SSM names, so update those to
-match if you change it.
+`eecs-capstone` for the cluster/service/ECR/secret/SSM names, so update those to
+match if you change it again. The Terraform remote-state bucket name (currently
+`eecs-capstone-tfstate`) is intentionally independent of `var.project` — most
+resources rename cleanly via `terraform apply`, but the state bucket needs a
+manual `terraform init -migrate-state` to a new bucket, so don't assume renaming
+`var.project` alone moves it too.
 
 ## Notes
 

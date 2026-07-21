@@ -8,7 +8,7 @@ name: Deploy
 # role. (Change var.deploy_branch in Terraform if you need a different branch.)
 #
 # Requires one GitHub Actions repository variable:
-#   AWS_DEPLOY_ROLE_ARN  - the cs-capstone-github-deploy role ARN (Terraform
+#   AWS_DEPLOY_ROLE_ARN  - the eecs-capstone-github-deploy role ARN (Terraform
 #                          output `github_deploy_role_arn`).
 on:
   workflow_dispatch:
@@ -23,7 +23,7 @@ permissions:
 
 env:
   AWS_REGION: us-west-2
-  PROJECT: cs-capstone
+  PROJECT: eecs-capstone
 
 jobs:
   deploy:

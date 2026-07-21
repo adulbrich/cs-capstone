@@ -1,7 +1,7 @@
 variable "project" {
   description = "Project name; used as a prefix for resource names."
   type        = string
-  default     = "cs-capstone"
+  default     = "eecs-capstone"
 }
 
 variable "environment" {
