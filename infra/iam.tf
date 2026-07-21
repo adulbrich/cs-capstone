@@ -96,10 +96,21 @@ data "aws_iam_policy_document" "github_assume" {
     # Deploy workflow must therefore be dispatched from `main`. To add an
     # approval gate later, create a GitHub Environment (e.g. "production") with
     # required reviewers and add "repo:.../...:environment:production" here.
+    #
+    # StringLike (not StringEquals) because GitHub appends the immutable
+    # owner/repo numeric IDs to `sub` for a period after a rename (e.g.
+    # "repo:owner@123/repo@456:ref:..."), to stop a renamed repo's old name
+    # from being reclaimed by someone else and inheriting this trust policy.
+    # The wildcard is anchored right after a literal "@" so it only ever
+    # absorbs the numeric ID suffix -- it cannot match an unrelated
+    # attacker-registered "adulbrich2" or "eecs-capstone-evil".
     condition {
-      test     = "StringEquals"
+      test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
-      values   = ["repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/${var.deploy_branch}"]
+      values = [
+        "repo:${var.github_owner}/${var.github_repo}:ref:refs/heads/${var.deploy_branch}",
+        "repo:${var.github_owner}@*/${var.github_repo}@*:ref:refs/heads/${var.deploy_branch}",
+      ]
     }
   }
 }
