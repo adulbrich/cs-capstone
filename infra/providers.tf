@@ -15,17 +15,19 @@ terraform {
   # Remote state. Bootstrap the bucket once (see infra/README.md), then
   # uncomment. AWS provider v6 + Terraform 1.10+ use S3-native locking via
   # `use_lockfile`, so no DynamoDB table is required.
-  # backend "s3" {
-  #   bucket       = "cs-capstone-tfstate"
-  #   key          = "prod/terraform.tfstate"
-  #   region       = "us-west-2"
-  #   encrypt      = true
-  #   use_lockfile = true
-  # }
+  backend "s3" {
+    bucket       = "cs-capstone-tfstate"
+    key          = "prod/terraform.tfstate"
+    region       = "us-west-2"
+    encrypt      = true
+    use_lockfile = true
+    profile      = "aws-capstone1"
+  }
 }
 
 provider "aws" {
-  region = var.region
+  region  = var.region
+  profile = "aws-capstone1"
 
   # Applied to every taggable resource in this configuration. This is the
   # primary way resources are associated with the project in a shared account:
