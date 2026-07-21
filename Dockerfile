@@ -37,5 +37,10 @@ COPY --from=build /app/.output ./.output
 COPY drizzle ./drizzle
 COPY scripts/migrate.mjs scripts/promote-admin.mjs ./scripts/
 
+# RDS requires TLS (rds.force_ssl); DATABASE_URL points sslrootcert at this
+# bundle so pg can verify the server cert (sslmode=verify-full) instead of
+# just encrypting blind.
+ADD https://truststore.pki.rds.amazonaws.com/global/global-bundle.pem /etc/ssl/certs/rds-global-bundle.pem
+
 EXPOSE 3000
 CMD ["node", ".output/server/index.mjs"]

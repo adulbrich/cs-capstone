@@ -7,8 +7,12 @@ resource "aws_secretsmanager_secret" "database_url" {
 }
 
 resource "aws_secretsmanager_secret_version" "database_url" {
-  secret_id     = aws_secretsmanager_secret.database_url.id
-  secret_string = "postgresql://${var.db_username}:${random_password.db.result}@${aws_db_instance.main.address}:5432/${var.db_name}"
+  secret_id = aws_secretsmanager_secret.database_url.id
+  # The default Postgres 18 parameter group enforces SSL (rds.force_ssl).
+  # sslmode=verify-full + the RDS CA bundle (baked into the image at
+  # /etc/ssl/certs/rds-global-bundle.pem, see Dockerfile) verifies the
+  # server cert instead of just encrypting blind.
+  secret_string = "postgresql://${var.db_username}:${random_password.db.result}@${aws_db_instance.main.address}:5432/${var.db_name}?sslmode=verify-full&sslrootcert=/etc/ssl/certs/rds-global-bundle.pem"
 }
 
 # Better Auth signing secret (generated; rotate freely).
