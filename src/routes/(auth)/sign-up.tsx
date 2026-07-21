@@ -48,7 +48,7 @@ function SignUp() {
           <h1 className="font-semibold text-2xl">Check your email</h1>
           <p className="mt-4 text-muted-foreground text-sm">
             We sent a verification link to your address. Open it to finish
-            signing up. (In dev, check the server console.)
+            signing up.
           </p>
         </div>
       </div>
