@@ -29,7 +29,7 @@ See the full design in `../.claude/plans/` (the approved deployment plan).
 ## After apply
 
 - Set the real GitHub OAuth client secret:
-  `aws secretsmanager put-secret-value --secret-id cs-capstone/github-client-secret --secret-string '<secret>'`
+  `aws --profile aws-capstone1 secretsmanager put-secret-value --secret-id cs-capstone/github-client-secret --secret-string '<secret>'`
 - Point the GitHub OAuth app callback at the `app_url` output.
 - Run the **Deploy** GitHub Actions workflow to build/push the first image,
   migrate, and scale the service to 1.

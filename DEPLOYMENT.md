@@ -37,7 +37,7 @@ Internet ──► CloudFront "app"  ──(VPC origin)──► internal ALB �
 Install locally:
 
 - AWS CLI v2, authenticated to the target account with admin-level permissions
-  (`aws sts get-caller-identity` should succeed).
+  (`aws --profile aws-capstone1 sts get-caller-identity` should succeed).
 - Terraform >= 1.10 (`terraform version`).
 - Docker (only needed if you ever build images by hand; CI does this normally).
 - `jq` (used by some commands below).
@@ -52,8 +52,8 @@ Accounts and access:
 > email provider) yet. The app runs with `EMAIL_TRANSPORT=console`, which logs
 > verification/reset links to CloudWatch instead of emailing them. Sign-up
 > still works, but only someone with log access can complete it. See section
-> 4.1 for how to retrieve those links, and section 9 for wiring up real email
-> later.
+> 6 for how to retrieve those links (once the app is actually deployed), and
+> section 9 for wiring up real email later.
 
 ---
 
@@ -64,7 +64,7 @@ Accounts and access:
 1. GitHub → Settings → Developer settings → OAuth Apps → New OAuth App.
 2. Homepage URL and callback URL need the app's public URL, which you do not
    have until Terraform runs. Put a placeholder now (for example
-   `https://example.com`); you will correct it in step 4.3.
+   `https://example.com`); you will correct it in step 4.2.
 3. Note the **Client ID** and generate a **Client secret**. Keep both for later.
 
 ### 3.2 Create the Terraform remote state bucket
@@ -72,18 +72,18 @@ Accounts and access:
 State contains generated database and auth secrets, so it must be private.
 
 ```bash
-aws s3api create-bucket \
+aws --profile aws-capstone1 s3api create-bucket \
   --bucket cs-capstone-tfstate \
   --region us-west-2 \
   --create-bucket-configuration LocationConstraint=us-west-2
-aws s3api put-bucket-versioning \
+aws --profile aws-capstone1 s3api put-bucket-versioning \
   --bucket cs-capstone-tfstate \
   --versioning-configuration Status=Enabled
-aws s3api put-bucket-encryption --bucket cs-capstone-tfstate \
+aws --profile aws-capstone1 s3api put-bucket-encryption --bucket cs-capstone-tfstate \
   --server-side-encryption-configuration \
   '{"Rules":[{"ApplyServerSideEncryptionByDefault":{"SSEAlgorithm":"AES256"}}]}'
 # Tag it like everything else (this bucket is created outside Terraform)
-aws s3api put-bucket-tagging --bucket cs-capstone-tfstate \
+aws --profile aws-capstone1 s3api put-bucket-tagging --bucket cs-capstone-tfstate \
   --tagging 'TagSet=[{Key=Project,Value=cs-capstone},{Key=ManagedBy,Value=manual}]'
 ```
 
@@ -112,7 +112,7 @@ The app targets Postgres 18. Verify the engine version exists in the region
 before applying, and pin a minor in `infra/rds.tf` if needed:
 
 ```bash
-aws rds describe-db-engine-versions --engine postgres --region us-west-2 \
+aws --profile aws-capstone1 rds describe-db-engine-versions --engine postgres --region us-west-2 \
   --query "DBEngineVersions[?starts_with(EngineVersion,'18')].EngineVersion"
 ```
 
@@ -143,32 +143,18 @@ terraform output
 
 ## 4. Post-apply configuration
 
-### 4.1 Email verification links (no email provider yet)
-
-With no email provider configured, `EMAIL_TRANSPORT=console` writes
-verification and password-reset links to stderr, which CloudWatch captures.
-After someone signs up, pull their link from the logs:
-
-```bash
-aws logs tail /ecs/cs-capstone --since 5m --region us-west-2 | grep -A2 "VERIFY EMAIL"
-```
-
-Send or read them the URL out of band. This is fine for bootstrapping admins
-(section 6) and small-scale testing; wiring up real email delivery is covered
-in section 9.
-
-### 4.2 Set the GitHub OAuth client secret
+### 4.1 Set the GitHub OAuth client secret
 
 Terraform seeds a placeholder. Replace it with the real secret from step 3.1:
 
 ```bash
-aws secretsmanager put-secret-value \
+aws --profile aws-capstone1 secretsmanager put-secret-value \
   --secret-id cs-capstone/github-client-secret \
   --secret-string 'YOUR_REAL_GITHUB_OAUTH_CLIENT_SECRET' \
   --region us-west-2
 ```
 
-### 4.3 Fix the GitHub OAuth app URLs
+### 4.2 Fix the GitHub OAuth app URLs
 
 Using the `app_url` output, set the OAuth app's:
 
@@ -178,7 +164,7 @@ Using the `app_url` output, set the OAuth app's:
 
 The callback path must be exact.
 
-### 4.4 Give GitHub Actions the deploy role
+### 4.3 Give GitHub Actions the deploy role
 
 In the GitHub repo → Settings → Secrets and variables → Actions → Variables, add
 a repository variable:
@@ -221,9 +207,17 @@ The app requires email verification and RDS is private, so admins are bootstrapp
 in two steps. Do this for **at least two** people (the app blocks a sole admin
 from demoting or banning themselves).
 
+With no email provider configured yet (see the callout in section 2),
+`EMAIL_TRANSPORT=console` writes verification links to stderr, which
+CloudWatch captures instead of an inbox. Once the first deploy (section 5)
+has run and someone has signed up, pull their link from the logs:
+
+```bash
+aws --profile aws-capstone1 logs tail /ecs/cs-capstone --since 5m --region us-west-2 | grep -A2 "VERIFY EMAIL"
+```
+
 1. Each future admin signs up through the app UI with email and password.
-   Pull their verification link from CloudWatch (step 4.1) and have them open
-   it.
+   Pull their verification link from the command above and have them open it.
 2. Promote each to admin by running the bundled one-off task. This reuses the
    exact network configuration of the running service so it can reach the
    private database:
@@ -231,12 +225,12 @@ from demoting or banning themselves).
 ```bash
 CLUSTER=cs-capstone
 SERVICE=cs-capstone
-TASKDEF=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+TASKDEF=$(aws --profile aws-capstone1 ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
   --query 'services[0].taskDefinition' --output text --region us-west-2)
-NETCFG=$(aws ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
+NETCFG=$(aws --profile aws-capstone1 ecs describe-services --cluster "$CLUSTER" --services "$SERVICE" \
   --query 'services[0].networkConfiguration' --output json --region us-west-2)
 
-aws ecs run-task --cluster "$CLUSTER" --launch-type FARGATE \
+aws --profile aws-capstone1 ecs run-task --cluster "$CLUSTER" --launch-type FARGATE \
   --task-definition "$TASKDEF" \
   --network-configuration "$NETCFG" \
   --overrides '{"containerOverrides":[{"name":"app","command":["node","scripts/promote-admin.mjs"],"environment":[{"name":"ADMIN_EMAIL","value":"admin1@example.edu"}]}]}' \
@@ -252,7 +246,7 @@ Repeat with the second admin's email. Check the task's CloudWatch log for
 
 - `curl -I https://<app-dist>.cloudfront.net/api/healthz` returns `200`.
 - Signing in with GitHub completes the OAuth round trip.
-- Email/password sign-up writes a verification link to CloudWatch (step 4.1)
+- Email/password sign-up writes a verification link to CloudWatch (section 6)
   and completes once that link is opened.
 - Uploading a project image works and the image loads from
   `https://<assets-dist>.cloudfront.net/...`.
@@ -272,7 +266,7 @@ process. Migrations run automatically before the new code serves traffic.
 ### View logs
 
 ```bash
-aws logs tail /ecs/cs-capstone --follow --region us-west-2
+aws --profile aws-capstone1 logs tail /ecs/cs-capstone --follow --region us-west-2
 ```
 
 ### Roll back
@@ -281,18 +275,19 @@ Re-run the **Deploy** workflow from an earlier commit, or point the service at a
 previous task definition revision:
 
 ```bash
-aws ecs update-service --cluster cs-capstone --service cs-capstone \
+aws --profile aws-capstone1 ecs update-service --cluster cs-capstone --service cs-capstone \
   --task-definition cs-capstone:<previous-revision> --region us-west-2
-aws ecs wait services-stable --cluster cs-capstone --service cs-capstone --region us-west-2
+aws --profile aws-capstone1 ecs wait services-stable --cluster cs-capstone --service cs-capstone --region us-west-2
 ```
 
-List revisions with `aws ecs list-task-definitions --family-prefix cs-capstone`.
+List revisions with
+`aws --profile aws-capstone1 ecs list-task-definitions --family-prefix cs-capstone`.
 
 ### Update a secret or config
 
 - Secrets (DATABASE_URL, BETTER_AUTH_SECRET, GITHUB_CLIENT_SECRET): update in
   Secrets Manager, then force a new deployment so tasks pick it up:
-  `aws ecs update-service --cluster cs-capstone --service cs-capstone --force-new-deployment --region us-west-2`.
+  `aws --profile aws-capstone1 ecs update-service --cluster cs-capstone --service cs-capstone --force-new-deployment --region us-west-2`.
 - Non-secret env (model ID, email from, etc.): change the value in
   `infra/ecs.tf`, `terraform apply` to register a new task-def revision, then
   run the **Deploy** workflow (which inherits the latest task-def env).
@@ -319,11 +314,11 @@ infrastructure, not code:
 3. `terraform apply`, then confirm the identity verification email.
 4. While SES is in the **sandbox**, it can only send to verified recipients —
    verify any test/admin addresses with
-   `aws sesv2 create-email-identity --email-identity <addr> --region us-west-2`.
+   `aws --profile aws-capstone1 sesv2 create-email-identity --email-identity <addr> --region us-west-2`.
    Request production access from the SES console to email arbitrary users.
 
 Until this is done, sign-up still works, but verification/reset links only
-reach CloudWatch logs (section 4.1), not real inboxes.
+reach CloudWatch logs (section 6), not real inboxes.
 
 ---
 
@@ -357,7 +352,7 @@ and `BETTER_AUTH_URL` (task-def env) must be the same app host.
 
 **Sign-up seems to hang with no verification email.** Expected: no email
 provider is configured yet. Pull the verification link from CloudWatch
-(section 4.1) instead.
+(section 6) instead.
 
 **CloudFront returns 502/504.** Usually the task is unhealthy. Check the target
 group health and the task logs. The ALB health check path is `/api/healthz`;
@@ -378,10 +373,10 @@ RDS has deletion protection and takes a final snapshot, and S3 must be emptied
 first. To fully destroy:
 
 1. Empty the assets bucket (find its name with
-   `aws s3 ls | grep cs-capstone-assets`):
+   `aws --profile aws-capstone1 s3 ls | grep cs-capstone-assets`):
 
    ```bash
-   aws s3 rm "s3://cs-capstone-assets-<account-id>" --recursive
+   aws --profile aws-capstone1 s3 rm "s3://cs-capstone-assets-<account-id>" --recursive
    ```
 
 2. Disable RDS deletion protection: set `deletion_protection = false` in
