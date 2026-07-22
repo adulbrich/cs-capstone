@@ -17,7 +17,7 @@ Source spec: `docs/superpowers/specs/2026-07-22-interests-embeddings-discovery-d
 - **An embedding failure must never fail a publish, a save, or a page load.** The transaction commits first; the embedding call is awaited but wrapped so it cannot throw into the request.
 - The embedding vector must never be returned to the client, in any code path.
 - Interests text is private to its owner. No admin view, no staff view, no listing endpoint.
-- Every test injects a fake `EmbedFn`. No test may call AWS.
+- Every test injects a fake `EmbedFn`. No test may call AWS. The integration config sets `BEDROCK_EMBEDDINGS_ENABLED=false` so the default adapter fails instantly rather than reaching the network (Task 4, Step 7).
 - All filter and sort state lives in URL search params.
 - Run `npm run check` and `npm run typecheck` before every commit.
 - Integration tests need `docker compose up -d` and run via `npm run test:integration`. They TRUNCATE the dev database.
@@ -49,6 +49,7 @@ Source spec: `docs/superpowers/specs/2026-07-22-interests-embeddings-discovery-d
 - `src/components/projects-filter-bar.tsx`: the sort select.
 - `src/routes/_authed/profile.tsx`: the interests editor.
 - `.env.example`, `infra/variables.tf`, `infra/ecs.tf`, `DEPLOYMENT.md`, `package.json`.
+- `vitest.integration.config.ts`: disable the live embedding adapter for the whole integration suite.
 
 ---
 
@@ -190,6 +191,14 @@ CREATE EXTENSION IF NOT EXISTS vector;
 ```
 
 Without it the migration fails on the first `vector(1024)` reference, both locally and on RDS.
+
+While the file is open, check the index statement. It must name the operator class:
+
+```sql
+CREATE INDEX "projects_embedding_idx" ON "projects" USING hnsw ("embedding" vector_cosine_ops);
+```
+
+drizzle-kit has been inconsistent about emitting the opclass for `.using("hnsw", ...)`. If `vector_cosine_ops` is missing, add it by hand. Without it Postgres cannot pick a default operator class for an HNSW index and the migration errors, or in the worst case builds an index the distance query will never use.
 
 - [ ] **Step 6: Apply the migration**
 
@@ -492,8 +501,14 @@ describe("defaults", () => {
     expect(EMBEDDING_MODEL_ID).toBe("amazon.titan-embed-text-v2:0");
     expect(EMBEDDING_DIMENSIONS).toBe(1024);
   });
+
+  it("is enabled unless explicitly switched off", () => {
+    expect(EMBEDDINGS_ENABLED).toBe(true);
+  });
 });
 ```
+
+Add `EMBEDDINGS_ENABLED` to the import list at the top of this test file.
 
 The final test assumes `BEDROCK_EMBEDDING_MODEL_ID` and `BEDROCK_EMBEDDING_DIMENSIONS` are unset in the unit-test environment, which is the case: `npm run test` does not load `.env.local`.
 
@@ -526,6 +541,21 @@ export const EMBEDDING_DIMENSIONS = Number(
   process.env.BEDROCK_EMBEDDING_DIMENSIONS ?? "1024"
 );
 
+/**
+ * Kill switch. Set `BEDROCK_EMBEDDINGS_ENABLED=false` to make every embedding
+ * attempt fail instantly without touching AWS.
+ *
+ * The integration suite sets it, because `refreshProjectEmbedding` defaults to
+ * the real adapter and is reached from every publish. Without this, publishing
+ * a fixture project would issue a live InvokeModel, or pay the SDK credential
+ * chain's IMDS probe and retries when no credentials exist.
+ *
+ * It doubles as an operational switch for disabling embeddings in production
+ * without a redeploy of application code.
+ */
+export const EMBEDDINGS_ENABLED =
+  process.env.BEDROCK_EMBEDDINGS_ENABLED !== "false";
+
 export function buildEmbedRequestBody(text: string): string {
   return JSON.stringify({
     inputText: text,
@@ -545,6 +575,9 @@ export function parseEmbedResponse(payload: Uint8Array): number[] {
 }
 
 export const bedrockEmbed: EmbedFn = async (text) => {
+  if (!EMBEDDINGS_ENABLED) {
+    throw new Error("Embeddings are disabled (BEDROCK_EMBEDDINGS_ENABLED)");
+  }
   const response = await getBedrockClient().send(
     new InvokeModelCommand({
       modelId: EMBEDDING_MODEL_ID,
@@ -1085,21 +1118,45 @@ with:
 
 Leave `performTransitionForCurrentUser`, `forceTransitionForCurrentUser`, and the update wrapper unchanged. They call the `As` helpers without an `embed` argument, so production uses the `bedrockEmbed` default. Only tests pass a fake.
 
-- [ ] **Step 7: Run the tests**
+- [ ] **Step 7: Make the existing integration suite hermetic**
+
+**This step is not optional, and it must land with this task.** Hooking a defaulted `refreshProjectEmbedding` into `performTransitionAs` changes the behaviour of code this plan never edits: `search.integration.test.ts` and `projects.integration.test.ts` publish fixture projects to set up their own assertions, with no `embed` argument. Every one of those publishes now reaches the real adapter. `vitest.integration.config.ts` loads `.env.local`, so on any machine that has Bedrock credentials for the AI-review feature, the whole suite starts making live, billable Titan calls. On a machine without them, it instead pays the AWS SDK credential chain's IMDS probe and retry timeout on each publish.
+
+In `vitest.integration.config.ts`, add an `env` block inside `test`:
+
+```ts
+  test: {
+    include: ["src/**/*.integration.test.ts"],
+    setupFiles: ["src/test/setup.integration.ts"],
+    pool: "forks",
+    fileParallelism: false,
+    // Embeddings must never reach AWS from a test. Tests that need a vector
+    // inject their own EmbedFn; everything else fails fast and locally.
+    env: { BEDROCK_EMBEDDINGS_ENABLED: "false" },
+  },
+```
+
+This is deliberately an env flag read by the adapter rather than a `vi.mock` in the setup file: `vi.mock` hoisting from a setup file is subtle and version-dependent, whereas `test.env` is applied before any module loads and cannot be defeated by import order.
+
+Injected fakes are unaffected, because they replace `bedrockEmbed` entirely and never consult the flag. Calls that fall through to the default now throw instantly, `refreshProjectEmbedding` catches it and returns `"failed"`, and the publish still succeeds, which is exactly the behaviour the "still publishes when embedding fails" test already asserts.
+
+- [ ] **Step 8: Prove no test reaches the network**
+
+Run: `npm run test:integration`
+Expected: PASS, and the suite's wall-clock time is within a second or two of what it was before Task 4. A multi-second regression means the flag is not being read; check that `EMBEDDINGS_ENABLED` is evaluated at module scope in `bedrock-embed.ts` and that the `env` block is inside `test`, not at the config root.
+
+To confirm directly, temporarily add `console.error("EMBED CALLED")` to the top of `bedrockEmbed` and re-run: it must never print.
+
+- [ ] **Step 9: Run the tests**
 
 Run: `npx vitest run --config vitest.integration.config.ts src/server/__tests__/project-embeddings.integration.test.ts`
 Expected: PASS, 11 tests.
 
-- [ ] **Step 8: Run the whole integration suite**
-
-Run: `npm run test:integration`
-Expected: PASS. `projects.integration.test.ts` calls these helpers without an `embed` argument; because no `BEDROCK_*` credentials resolve in the test environment, `refreshProjectEmbedding` catches the failure and returns `"failed"` without affecting assertions. If any test becomes slow or flaky from real AWS attempts, pass a `vi.fn().mockResolvedValue(VECTOR)` into its publish calls.
-
-- [ ] **Step 9: Lint, typecheck, commit**
+- [ ] **Step 10: Lint, typecheck, commit**
 
 ```bash
 npm run check && npm run typecheck
-git add src/server/_internal/projects.ts src/server/__tests__/project-embeddings.integration.test.ts
+git add src/server/_internal/projects.ts src/server/__tests__/project-embeddings.integration.test.ts vitest.integration.config.ts
 git commit -m "feat: embed projects on publish and re-embed published projects on save"
 ```
 
@@ -2173,6 +2230,10 @@ In `.env.example`, below the existing `BEDROCK_MODEL_ID` line, add:
 # Bedrock console, separately from IAM permissions).
 BEDROCK_EMBEDDING_MODEL_ID=amazon.titan-embed-text-v2:0
 BEDROCK_EMBEDDING_DIMENSIONS=1024
+
+# Kill switch. Set to false to make every embedding attempt fail instantly
+# without calling AWS. The integration test suite sets this automatically.
+BEDROCK_EMBEDDINGS_ENABLED=true
 ```
 
 - [ ] **Step 2: Add the Terraform variables**
@@ -2226,6 +2287,19 @@ as `BEDROCK_REGION`.
    falls back to relevance ordering.
 2. The migration creates the `vector` extension. RDS PostgreSQL 18 ships
    pgvector 0.8.1, and the master user has the privileges to create it.
+   Before relying on this, confirm the instance is actually on 18 in your
+   region:
+
+   ```bash
+   aws rds describe-db-engine-versions --engine postgres --engine-version 18 \
+     --query 'DBEngineVersions[0].SupportedFeatureNames' --output text
+   aws rds describe-db-engine-versions --engine postgres --engine-version 18 \
+     --query 'DBEngineVersions[0].ValidUpgradeTarget' --output table
+   ```
+
+   `infra/rds.tf:19` pins `engine_version = "18"`. If the region does not yet
+   offer 18, pgvector is still available on 15, 16, and 17, so the fallback is
+   pinning a lower major rather than abandoning the feature.
 3. After the first deploy, backfill vectors for projects published before this
    feature existed:
 
@@ -2292,6 +2366,7 @@ git commit -m "docs: document embedding configuration and backfill"
 | Sort control, disabled state, "Ranked by your interests" line | Task 9 |
 | Pending state on slow mutations | Task 7, Step 3 (`disabled` + "Saving...") |
 | Env vars, ECS wiring, Bedrock model grant note | Task 10 |
+| No test reaches AWS (suite kept hermetic after the trigger lands) | Task 2 Step 7, Task 4 Steps 7-8 |
 | Cascade delete of `user_interests` | Task 1 Step 3, Task 6 Step 1 |
 
 **Type consistency:** `EmbedFn = (text: string) => Promise<number[]>` is defined in Task 2 and used as a trailing optional parameter in Tasks 3, 4, and 6. `RefreshOutcome` is the union `"skipped" | "unchanged" | "updated" | "failed"`, returned by both refresh functions in Task 3, consumed by the tally in Task 5 and the `embedded` boolean in Task 6. `toSqlVector(values: number[]): string` is defined in Task 3 and called in Task 8. `getMyInterestsAs` returns `{ hasEmbedding, interestsText }`, and Task 7 and Task 9 both read exactly those property names. The `sort` union `"relevance" | "newest" | "recommended"` is identical in the Zod schema (Task 8), the route schema (Task 9), and the filter bar prop (Task 9).
