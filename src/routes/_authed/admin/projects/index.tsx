@@ -74,10 +74,10 @@ function AdminProjects() {
 
   const label = (s: string) => s.replace(/_/g, " ");
 
-  const softDeleteToggle = (
+  const softDeleteToggle = (idSuffix: string) => (
     <FilterSwitch
       checked={includeSoftDeleted}
-      id="admin-include-soft-deleted"
+      id={`admin-include-soft-deleted-${idSuffix}`}
       label="Show soft-deleted"
       onCheckedChange={(checked) =>
         void navigate({
@@ -130,7 +130,7 @@ function AdminProjects() {
             ))}
           </SelectContent>
         </Select>
-        {softDeleteToggle}
+        {softDeleteToggle("mobile")}
       </div>
 
       {/* Desktop: tab strip + soft-deleted toggle */}
@@ -156,7 +156,7 @@ function AdminProjects() {
             </Link>
           ))}
         </div>
-        <div>{softDeleteToggle}</div>
+        <div>{softDeleteToggle("desktop")}</div>
       </div>
       <div className="mt-6 flex flex-col gap-3">
         {rows.length === 0 ? (
