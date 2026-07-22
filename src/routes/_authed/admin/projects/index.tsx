@@ -113,7 +113,7 @@ function AdminProjects() {
           }
           value={program ?? "_all_"}
         >
-          <SelectTrigger className="w-56" id={triggerId}>
+          <SelectTrigger className="w-full md:w-48 lg:w-56" id={triggerId}>
             <SelectValue placeholder="All programs" />
           </SelectTrigger>
           <SelectContent>
@@ -190,14 +190,14 @@ function AdminProjects() {
       </div>
 
       {/* Desktop: tab strip + soft-deleted toggle */}
-      <div className="mt-4 hidden items-end justify-between md:flex">
+      <div className="mt-4 hidden flex-wrap items-end justify-between gap-y-2 md:flex">
         <div className="flex border-border border-b text-sm">
           {STATUSES.map((s) => (
             <Link
               className={
                 s === status
-                  ? "-mb-px border-b-2 px-3 py-1.5 font-medium"
-                  : "px-3 py-1.5 text-muted-foreground hover:text-foreground"
+                  ? "-mb-px whitespace-nowrap border-b-2 px-3 py-1.5 font-medium"
+                  : "whitespace-nowrap px-3 py-1.5 text-muted-foreground hover:text-foreground"
               }
               key={s}
               search={(prev) => ({ ...prev, status: s })}

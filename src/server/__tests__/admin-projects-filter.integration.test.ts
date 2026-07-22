@@ -6,6 +6,7 @@ import { auth } from "#/lib/auth";
 import {
   createProjectAs,
   performTransitionAs,
+  softDeleteProjectAs,
 } from "#/server/_internal/projects";
 import { listAdminProjectsAs } from "#/server/_internal/projects-queries";
 
@@ -87,12 +88,21 @@ describe("admin projects program filter", () => {
   it("composes the program filter with the status filter", async () => {
     const admin = await makeAdmin(`c-${Date.now()}@x.com`);
     const cs461 = await makeProgram("CS 461");
+    const ece441 = await makeProgram("ECE 441");
 
     const draft = await createProjectAs(admin, baseProject("Draft", cs461));
     const live = await createProjectAs(admin, baseProject("Live", cs461));
     await performTransitionAs(admin, live.id, "submitted");
     await performTransitionAs(admin, live.id, "approved");
     await performTransitionAs(admin, live.id, "published");
+
+    const otherProgram = await createProjectAs(
+      admin,
+      baseProject("Live elsewhere", ece441)
+    );
+    await performTransitionAs(admin, otherProgram.id, "submitted");
+    await performTransitionAs(admin, otherProgram.id, "approved");
+    await performTransitionAs(admin, otherProgram.id, "published");
 
     const { rows } = await listAdminProjectsAs(admin, {
       status: "published",
@@ -102,6 +112,33 @@ describe("admin projects program filter", () => {
 
     expect(rows.map((r) => r.title)).toEqual(["Live"]);
     expect(rows.map((r) => r.id)).not.toContain(draft.id);
+    expect(rows.map((r) => r.id)).not.toContain(otherProgram.id);
+  });
+
+  it("composes the program filter with soft-delete visibility", async () => {
+    const admin = await makeAdmin(`e-${Date.now()}@x.com`);
+    const cs461 = await makeProgram("CS 461");
+
+    const deleted = await createProjectAs(
+      admin,
+      baseProject("Soft-deleted", cs461)
+    );
+    await performTransitionAs(admin, deleted.id, "submitted");
+    await softDeleteProjectAs(admin, deleted.id);
+
+    const withoutDeleted = await listAdminProjectsAs(admin, {
+      status: "all",
+      includeSoftDeleted: false,
+      program: cs461,
+    });
+    expect(withoutDeleted.rows.map((r) => r.id)).not.toContain(deleted.id);
+
+    const withDeleted = await listAdminProjectsAs(admin, {
+      status: "all",
+      includeSoftDeleted: true,
+      program: cs461,
+    });
+    expect(withDeleted.rows.map((r) => r.id)).toContain(deleted.id);
   });
 
   it("still refuses non-staff viewers", async () => {
