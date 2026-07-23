@@ -19,6 +19,7 @@ const TABLES = [
   "verification",
   "account",
   "session",
+  "user_interests",
   "user",
 ];
 
