@@ -314,6 +314,7 @@ export const inventoryItems = pgTable(
     description: text("description"),
     category: text("category"),
     serial: text("serial"),
+    label: text("label"),
     location: text("location"),
     notes: text("notes"),
     imageUrl: text("image_url"),

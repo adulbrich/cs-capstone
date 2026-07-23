@@ -57,6 +57,13 @@
       "when": 1784833141307,
       "tag": "0007_luxuriant_trauma",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1784843673871,
+      "tag": "0008_add_inventory_label",
+      "breakpoints": true
     }
   ]
 }

@@ -23,13 +23,14 @@ interface StaffItem {
   description: string | null;
   id: string;
   imageUrl: string | null;
+  label?: string | null;
   location: string | null;
   name: string;
   notes?: string | null;
   serial?: string | null;
 }
 
-export const Route = createFileRoute("/_authed/admin/inventory/$itemId/edit")({
+export const Route = createFileRoute("/_authed/admin/inventory/$itemId_/edit")({
   head: () => ({ meta: [{ title: pageTitle("Edit Inventory Item") }] }),
   beforeLoad: async () => {
     const session = await getSession();
@@ -93,6 +94,7 @@ function EditInventoryItem() {
             description: loaded.description ?? "",
             category: loaded.category ?? "",
             serial: loaded.serial ?? "",
+            label: loaded.label ?? "",
             location: loaded.location ?? "",
             notes: loaded.notes ?? "",
             imageUrl: loaded.imageUrl ?? "",

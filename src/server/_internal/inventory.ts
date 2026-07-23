@@ -54,6 +54,7 @@ export interface InventoryItemPublic {
 
 export type InventoryItemStaff = InventoryItemPublic & {
   serial: string | null;
+  label: string | null;
   location: string | null;
   notes: string | null;
   currentHolderId: string | null;
@@ -86,6 +87,7 @@ function fullForStaff(
   return {
     ...stripForPublic(row),
     serial: row.serial,
+    label: row.label,
     location: row.location,
     notes: row.notes,
     currentHolderId: row.currentHolderId,
@@ -122,12 +124,15 @@ export async function listInventoryAs(
       item: inventoryItems,
       pickupBy: inventoryRequestItems.pickupBy,
       dueAt: inventoryRequestItems.dueAt,
+      holderName: user.name,
+      holderEmail: user.email,
     })
     .from(inventoryItems)
     .leftJoin(
       inventoryRequestItems,
       eq(inventoryItems.currentRequestItemId, inventoryRequestItems.id)
     )
+    .leftJoin(user, eq(inventoryItems.currentHolderId, user.id))
     .where(where)
     .orderBy(desc(inventoryItems.updatedAt))
     .limit(data.pageSize)
@@ -139,10 +144,16 @@ export async function listInventoryAs(
     .where(where);
 
   const mapped = rows.map((r) => {
-    const base = isStaff(viewer)
-      ? fullForStaff(r.item)
-      : stripForPublic(r.item);
-    return { ...base, pickupBy: r.pickupBy, dueAt: r.dueAt };
+    if (isStaff(viewer)) {
+      return {
+        ...fullForStaff(r.item),
+        currentHolderName: r.holderName,
+        currentHolderEmail: r.holderEmail,
+        pickupBy: r.pickupBy,
+        dueAt: r.dueAt,
+      };
+    }
+    return { ...stripForPublic(r.item), pickupBy: r.pickupBy, dueAt: r.dueAt };
   });
 
   return {
@@ -159,12 +170,15 @@ export async function getInventoryItemAs(viewer: Viewer, data: { id: string }) {
       item: inventoryItems,
       pickupBy: inventoryRequestItems.pickupBy,
       dueAt: inventoryRequestItems.dueAt,
+      holderName: user.name,
+      holderEmail: user.email,
     })
     .from(inventoryItems)
     .leftJoin(
       inventoryRequestItems,
       eq(inventoryItems.currentRequestItemId, inventoryRequestItems.id)
     )
+    .leftJoin(user, eq(inventoryItems.currentHolderId, user.id))
     .where(eq(inventoryItems.id, data.id));
   if (!row) {
     return null;
@@ -172,10 +186,20 @@ export async function getInventoryItemAs(viewer: Viewer, data: { id: string }) {
   if (row.item.status === "retired" && !isStaff(viewer)) {
     return null;
   }
-  const base = isStaff(viewer)
-    ? fullForStaff(row.item)
-    : stripForPublic(row.item);
-  return { ...base, pickupBy: row.pickupBy, dueAt: row.dueAt };
+  if (isStaff(viewer)) {
+    return {
+      ...fullForStaff(row.item),
+      currentHolderName: row.holderName,
+      currentHolderEmail: row.holderEmail,
+      pickupBy: row.pickupBy,
+      dueAt: row.dueAt,
+    };
+  }
+  return {
+    ...stripForPublic(row.item),
+    pickupBy: row.pickupBy,
+    dueAt: row.dueAt,
+  };
 }
 
 export async function listInventoryForCurrentUser(data: ListInventoryInput) {
@@ -208,6 +232,7 @@ export interface CreateInventoryItemInput {
   category: string | null;
   description: string | null;
   imageUrl: string | null;
+  label: string | null;
   location: string | null;
   name: string;
   notes: string | null;
@@ -232,6 +257,7 @@ export async function createInventoryItemAs(
       description: data.description,
       category: data.category,
       serial: data.serial,
+      label: data.label,
       location: data.location,
       notes: data.notes,
       imageUrl: data.imageUrl,
@@ -249,6 +275,7 @@ const EDITABLE_FIELDS = [
   "description",
   "category",
   "serial",
+  "label",
   "location",
   "notes",
   "imageUrl",
@@ -295,6 +322,7 @@ export async function updateInventoryItemAs(
         description: data.description,
         category: data.category,
         serial: data.serial,
+        label: data.label,
         location: data.location,
         notes: data.notes,
         imageUrl: data.imageUrl,

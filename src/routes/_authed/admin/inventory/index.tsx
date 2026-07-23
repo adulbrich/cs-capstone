@@ -77,6 +77,7 @@ interface StaffRow {
   category: string | null;
   currentHolderId?: string | null;
   currentHolderLabel?: string | null;
+  currentHolderName?: string | null;
   id: string;
   imageUrl: string | null;
   location: string | null;
@@ -179,7 +180,10 @@ function AdminInventory() {
         {rows.map((r) => {
           const row = r as unknown as StaffRow;
           const img = getPublicUrl(row.imageUrl);
-          const holder = row.currentHolderId ?? row.currentHolderLabel ?? "";
+          const holder =
+            row.currentHolderName ??
+            row.currentHolderLabel ??
+            (row.currentHolderId ? "(user)" : "");
           return (
             <tr key={row.id}>
               <td className="border border-border p-2" data-label="Name">

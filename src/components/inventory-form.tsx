@@ -18,6 +18,7 @@ export const inventoryFormSchema = z.object({
   description: z.string().max(5000).default(""),
   category: z.string().max(120).default(""),
   serial: z.string().max(120).default(""),
+  label: z.string().max(120).default(""),
   location: z.string().max(200).default(""),
   notes: z.string().max(5000).default(""),
   imageUrl: z.union([z.literal(""), z.string().max(500)]).default(""),
@@ -51,6 +52,7 @@ export function InventoryForm({
       description: initial?.description ?? "",
       category: initial?.category ?? "",
       serial: initial?.serial ?? "",
+      label: initial?.label ?? "",
       location: initial?.location ?? "",
       notes: initial?.notes ?? "",
       imageUrl: initial?.imageUrl ?? "",
@@ -79,6 +81,7 @@ export function InventoryForm({
           description: value.description || null,
           category: value.category || null,
           serial: value.serial || null,
+          label: value.label || null,
           location: value.location || null,
           notes: value.notes || null,
           imageUrl: pendingImage === null ? null : value.imageUrl || null,
@@ -136,6 +139,7 @@ export function InventoryForm({
       />
       <Field form={form} label="Category" name="category" />
       <Field form={form} label="Serial" name="serial" />
+      <Field form={form} label="Label" name="label" />
       <Field form={form} label="Location" name="location" />
       <form.Field name="imageUrl">
         {(field: AnyForm) => (

@@ -24,6 +24,7 @@ import {
   SelectValue,
 } from "./ui/select";
 import { Textarea } from "./ui/textarea";
+import { type SelectedUser, UserPicker } from "./user-picker";
 
 type Status =
   | "available"
@@ -62,6 +63,8 @@ interface Props {
     name: string;
     status: string;
     currentHolderId: string | null;
+    currentHolderName?: string | null;
+    currentHolderEmail?: string | null;
     currentHolderLabel: string | null;
     currentRequestItemId: string | null;
   };
@@ -83,6 +86,27 @@ function recommendedNext(status: Status): {
     default:
       return null;
   }
+}
+
+function formatHolderDisplay(
+  item: Props["item"],
+  holderName?: string | null
+): string | null {
+  if (holderName) {
+    return holderName;
+  }
+  if (item.currentHolderName) {
+    return item.currentHolderEmail
+      ? `${item.currentHolderName} (${item.currentHolderEmail})`
+      : item.currentHolderName;
+  }
+  if (item.currentHolderEmail) {
+    return item.currentHolderEmail;
+  }
+  if (item.currentHolderLabel) {
+    return item.currentHolderLabel;
+  }
+  return item.currentHolderId ? "(user)" : null;
 }
 
 const HISTORY_PAGE_SIZE = 10;
@@ -171,7 +195,7 @@ export function InventoryLifecyclePanel({ item, holderName, history }: Props) {
   const [dlgOpen, setDlgOpen] = useState(false);
   const [dlgTargetStatus, setDlgTargetStatus] = useState<Status>("checked_out");
   const [assignMode, setAssignMode] = useState<"user" | "label">("user");
-  const [assignUserId, setAssignUserId] = useState("");
+  const [assignUser, setAssignUser] = useState<SelectedUser | null>(null);
   const [assignLabel, setAssignLabel] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [pickupDate, setPickupDate] = useState("");
@@ -219,7 +243,15 @@ export function InventoryLifecyclePanel({ item, holderName, history }: Props) {
   function openDialogFor(target: Status) {
     setDlgTargetStatus(target);
     setAssignMode("user");
-    setAssignUserId(item.currentHolderId ?? "");
+    setAssignUser(
+      item.currentHolderId
+        ? {
+            id: item.currentHolderId,
+            name: item.currentHolderName ?? null,
+            email: item.currentHolderEmail ?? "",
+          }
+        : null
+    );
     setAssignLabel(item.currentHolderLabel ?? "");
     setDueDate("");
     setPickupDate("");
@@ -237,12 +269,11 @@ export function InventoryLifecyclePanel({ item, holderName, history }: Props) {
       );
       return;
     }
-    const holderId =
-      assignMode === "user" && assignUserId ? assignUserId : null;
+    const holderId = assignMode === "user" && assignUser ? assignUser.id : null;
     const holderLabel =
       assignMode === "label" && assignLabel ? assignLabel : null;
     if (needsHolder && !holderId && !holderLabel) {
-      setError("Provide a user id or a label.");
+      setError("Provide a user or a label.");
       return;
     }
     await runTransition({
@@ -302,10 +333,7 @@ export function InventoryLifecyclePanel({ item, holderName, history }: Props) {
   }
 
   const canHardDelete = status === "available" || status === "retired";
-  const holderDisplay =
-    holderName ??
-    item.currentHolderLabel ??
-    (item.currentHolderId ? "(user)" : null);
+  const holderDisplay = formatHolderDisplay(item, holderName);
 
   return (
     <div className="space-y-6">
@@ -419,14 +447,10 @@ export function InventoryLifecyclePanel({ item, holderName, history }: Props) {
             </div>
             {assignMode === "user" ? (
               <div>
-                <Label htmlFor="assign-user-id">User id</Label>
-                <Input
-                  className="mt-1"
-                  id="assign-user-id"
-                  onChange={(e) => setAssignUserId(e.target.value)}
-                  placeholder="User id"
-                  value={assignUserId}
-                />
+                <Label>User</Label>
+                <div className="mt-1">
+                  <UserPicker onChange={setAssignUser} value={assignUser} />
+                </div>
               </div>
             ) : (
               <div>

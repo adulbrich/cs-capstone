@@ -1,5 +1,6 @@
 import { useNavigate } from "@tanstack/react-router";
 import { LayoutGrid, List } from "lucide-react";
+import { writeStoredView } from "#/lib/view-preference";
 
 type Props =
   | {
@@ -21,6 +22,7 @@ export function ViewToggle(props: Props) {
     if (view === current) {
       return;
     }
+    writeStoredView(view);
     if (props.onChange) {
       props.onChange(view);
       return;
