@@ -101,9 +101,12 @@ function AdminHome() {
         <h2 className="font-medium text-muted-foreground text-xs uppercase tracking-wide">
           Overview
         </h2>
-        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
+        <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-3">
           <StatCard label="Total projects" value={total} />
           <StatCard label="Published" value={published} />
+          {isAdmin && <StatCard label="Users" value={userTotal} />}
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2">
           {submitted > 0 ? (
             <Link
               className={ALERT_CARD_CLASS}
@@ -135,7 +138,6 @@ function AdminHome() {
           ) : (
             <StatCard label="Inventory requests" value={pendingRequests} />
           )}
-          {isAdmin && <StatCard label="Users" value={userTotal} />}
         </div>
       </section>
 
