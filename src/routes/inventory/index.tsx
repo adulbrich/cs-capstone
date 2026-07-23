@@ -1,11 +1,14 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { useCallback } from "react";
 import { z } from "zod";
 import { EmptyState } from "#/components/empty-state";
 import { InventoryCard } from "#/components/inventory-card";
 import { InventoryFilterBar } from "#/components/inventory-filter-bar";
 import { InventoryRow } from "#/components/inventory-row";
 import { authClient } from "#/lib/auth-client";
+import { useSeedViewFromStorage } from "#/lib/use-seed-view";
+import type { ViewMode } from "#/lib/view-preference";
 import {
   addToCart,
   listInventory,
@@ -26,7 +29,9 @@ const searchSchema = z.object({
     .nullable()
     .default(null),
   category: z.string().nullable().default(null),
-  view: z.enum(["card", "row"]).default("card"),
+  // Optional so a param-less visit is detectable; the stored preference then
+  // seeds it. Absent from the URL defaults to "card" at render.
+  view: z.enum(["card", "row"]).optional(),
   page: z.number().int().positive().default(1),
 });
 
@@ -54,6 +59,13 @@ export const Route = createFileRoute("/inventory/")({
 function InventoryIndex() {
   const search = Route.useSearch();
   const navigate = useNavigate({ from: "/inventory/" });
+  const view = search.view ?? "card";
+  const seedView = useCallback(
+    (next: ViewMode) =>
+      navigate({ replace: true, search: (s) => ({ ...s, view: next }) }),
+    [navigate]
+  );
+  useSeedViewFromStorage(search.view, seedView);
   const qc = useQueryClient();
   const { data: session } = authClient.useSession();
   const data = Route.useLoaderData();
@@ -87,7 +99,7 @@ function InventoryIndex() {
             }
             q={search.q}
             status={search.status}
-            view={search.view}
+            view={view}
           />
         </div>
       </div>
@@ -95,7 +107,7 @@ function InventoryIndex() {
         if (data.rows.length === 0) {
           return <EmptyState>No items match.</EmptyState>;
         }
-        if (search.view === "row") {
+        if (view === "row") {
           return (
             <div className="mx-auto mt-6 flex max-w-4xl flex-col gap-3">
               {data.rows.map((it) => (

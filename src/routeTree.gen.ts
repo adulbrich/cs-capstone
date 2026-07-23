@@ -42,7 +42,7 @@ import { Route as AuthedAdminInventoryRequestsRouteImport } from './routes/_auth
 import { Route as AuthedAdminInventoryNewRouteImport } from './routes/_authed/admin/inventory/new'
 import { Route as AuthedAdminInventoryItemIdRouteImport } from './routes/_authed/admin/inventory/$itemId'
 import { Route as AuthedAdminCategoriesCategoryIdRouteImport } from './routes/_authed/admin/categories/$categoryId'
-import { Route as AuthedAdminInventoryItemIdEditRouteImport } from './routes/_authed/admin/inventory/$itemId.edit'
+import { Route as AuthedAdminInventoryItemIdEditRouteImport } from './routes/_authed/admin/inventory/$itemId_.edit'
 
 const AuthedRoute = AuthedRouteImport.update({
   id: '/_authed',
@@ -219,9 +219,9 @@ const AuthedAdminCategoriesCategoryIdRoute =
   } as any)
 const AuthedAdminInventoryItemIdEditRoute =
   AuthedAdminInventoryItemIdEditRouteImport.update({
-    id: '/edit',
-    path: '/edit',
-    getParentRoute: () => AuthedAdminInventoryItemIdRoute,
+    id: '/inventory/$itemId_/edit',
+    path: '/inventory/$itemId/edit',
+    getParentRoute: () => AuthedAdminRoute,
   } as any)
 
 export interface FileRoutesByFullPath {
@@ -245,7 +245,7 @@ export interface FileRoutesByFullPath {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin/': typeof AuthedAdminIndexRoute
   '/admin/categories/$categoryId': typeof AuthedAdminCategoriesCategoryIdRoute
-  '/admin/inventory/$itemId': typeof AuthedAdminInventoryItemIdRouteWithChildren
+  '/admin/inventory/$itemId': typeof AuthedAdminInventoryItemIdRoute
   '/admin/inventory/new': typeof AuthedAdminInventoryNewRoute
   '/admin/inventory/requests': typeof AuthedAdminInventoryRequestsRoute
   '/admin/programs/$programId': typeof AuthedAdminProgramsProgramIdRoute
@@ -279,7 +279,7 @@ export interface FileRoutesByTo {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/admin': typeof AuthedAdminIndexRoute
   '/admin/categories/$categoryId': typeof AuthedAdminCategoriesCategoryIdRoute
-  '/admin/inventory/$itemId': typeof AuthedAdminInventoryItemIdRouteWithChildren
+  '/admin/inventory/$itemId': typeof AuthedAdminInventoryItemIdRoute
   '/admin/inventory/new': typeof AuthedAdminInventoryNewRoute
   '/admin/inventory/requests': typeof AuthedAdminInventoryRequestsRoute
   '/admin/programs/$programId': typeof AuthedAdminProgramsProgramIdRoute
@@ -316,7 +316,7 @@ export interface FileRoutesById {
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/_authed/admin/': typeof AuthedAdminIndexRoute
   '/_authed/admin/categories/$categoryId': typeof AuthedAdminCategoriesCategoryIdRoute
-  '/_authed/admin/inventory/$itemId': typeof AuthedAdminInventoryItemIdRouteWithChildren
+  '/_authed/admin/inventory/$itemId': typeof AuthedAdminInventoryItemIdRoute
   '/_authed/admin/inventory/new': typeof AuthedAdminInventoryNewRoute
   '/_authed/admin/inventory/requests': typeof AuthedAdminInventoryRequestsRoute
   '/_authed/admin/programs/$programId': typeof AuthedAdminProgramsProgramIdRoute
@@ -328,7 +328,7 @@ export interface FileRoutesById {
   '/_authed/admin/programs/': typeof AuthedAdminProgramsIndexRoute
   '/_authed/admin/projects/': typeof AuthedAdminProjectsIndexRoute
   '/_authed/admin/users/': typeof AuthedAdminUsersIndexRoute
-  '/_authed/admin/inventory/$itemId/edit': typeof AuthedAdminInventoryItemIdEditRoute
+  '/_authed/admin/inventory/$itemId_/edit': typeof AuthedAdminInventoryItemIdEditRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -435,7 +435,7 @@ export interface FileRouteTypes {
     | '/_authed/admin/programs/'
     | '/_authed/admin/projects/'
     | '/_authed/admin/users/'
-    | '/_authed/admin/inventory/$itemId/edit'
+    | '/_authed/admin/inventory/$itemId_/edit'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -687,34 +687,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthedAdminCategoriesCategoryIdRouteImport
       parentRoute: typeof AuthedAdminRoute
     }
-    '/_authed/admin/inventory/$itemId/edit': {
-      id: '/_authed/admin/inventory/$itemId/edit'
-      path: '/edit'
+    '/_authed/admin/inventory/$itemId_/edit': {
+      id: '/_authed/admin/inventory/$itemId_/edit'
+      path: '/inventory/$itemId/edit'
       fullPath: '/admin/inventory/$itemId/edit'
       preLoaderRoute: typeof AuthedAdminInventoryItemIdEditRouteImport
-      parentRoute: typeof AuthedAdminInventoryItemIdRoute
+      parentRoute: typeof AuthedAdminRoute
     }
   }
 }
 
-interface AuthedAdminInventoryItemIdRouteChildren {
-  AuthedAdminInventoryItemIdEditRoute: typeof AuthedAdminInventoryItemIdEditRoute
-}
-
-const AuthedAdminInventoryItemIdRouteChildren: AuthedAdminInventoryItemIdRouteChildren =
-  {
-    AuthedAdminInventoryItemIdEditRoute: AuthedAdminInventoryItemIdEditRoute,
-  }
-
-const AuthedAdminInventoryItemIdRouteWithChildren =
-  AuthedAdminInventoryItemIdRoute._addFileChildren(
-    AuthedAdminInventoryItemIdRouteChildren,
-  )
-
 interface AuthedAdminRouteChildren {
   AuthedAdminIndexRoute: typeof AuthedAdminIndexRoute
   AuthedAdminCategoriesCategoryIdRoute: typeof AuthedAdminCategoriesCategoryIdRoute
-  AuthedAdminInventoryItemIdRoute: typeof AuthedAdminInventoryItemIdRouteWithChildren
+  AuthedAdminInventoryItemIdRoute: typeof AuthedAdminInventoryItemIdRoute
   AuthedAdminInventoryNewRoute: typeof AuthedAdminInventoryNewRoute
   AuthedAdminInventoryRequestsRoute: typeof AuthedAdminInventoryRequestsRoute
   AuthedAdminProgramsProgramIdRoute: typeof AuthedAdminProgramsProgramIdRoute
@@ -725,12 +711,13 @@ interface AuthedAdminRouteChildren {
   AuthedAdminProgramsIndexRoute: typeof AuthedAdminProgramsIndexRoute
   AuthedAdminProjectsIndexRoute: typeof AuthedAdminProjectsIndexRoute
   AuthedAdminUsersIndexRoute: typeof AuthedAdminUsersIndexRoute
+  AuthedAdminInventoryItemIdEditRoute: typeof AuthedAdminInventoryItemIdEditRoute
 }
 
 const AuthedAdminRouteChildren: AuthedAdminRouteChildren = {
   AuthedAdminIndexRoute: AuthedAdminIndexRoute,
   AuthedAdminCategoriesCategoryIdRoute: AuthedAdminCategoriesCategoryIdRoute,
-  AuthedAdminInventoryItemIdRoute: AuthedAdminInventoryItemIdRouteWithChildren,
+  AuthedAdminInventoryItemIdRoute: AuthedAdminInventoryItemIdRoute,
   AuthedAdminInventoryNewRoute: AuthedAdminInventoryNewRoute,
   AuthedAdminInventoryRequestsRoute: AuthedAdminInventoryRequestsRoute,
   AuthedAdminProgramsProgramIdRoute: AuthedAdminProgramsProgramIdRoute,
@@ -741,6 +728,7 @@ const AuthedAdminRouteChildren: AuthedAdminRouteChildren = {
   AuthedAdminProgramsIndexRoute: AuthedAdminProgramsIndexRoute,
   AuthedAdminProjectsIndexRoute: AuthedAdminProjectsIndexRoute,
   AuthedAdminUsersIndexRoute: AuthedAdminUsersIndexRoute,
+  AuthedAdminInventoryItemIdEditRoute: AuthedAdminInventoryItemIdEditRoute,
 }
 
 const AuthedAdminRouteWithChildren = AuthedAdminRoute._addFileChildren(

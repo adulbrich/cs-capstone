@@ -67,6 +67,7 @@ const itemPayloadSchema = z.object({
   description: z.string().max(5000).nullable().default(null),
   category: z.string().max(120).nullable().default(null),
   serial: z.string().max(120).nullable().default(null),
+  label: z.string().max(120).nullable().default(null),
   location: z.string().max(200).nullable().default(null),
   notes: z.string().max(5000).nullable().default(null),
   imageUrl: z.string().max(500).nullable().default(null),

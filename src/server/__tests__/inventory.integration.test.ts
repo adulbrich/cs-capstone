@@ -340,6 +340,25 @@ describe("listInventoryAs privacy", () => {
     expect((found as unknown as { notes: string }).notes).toBe("internal");
   });
 
+  it("includes the holder's name in the staff list rows", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const holderEmail = `lh-${Date.now()}@x.com`;
+    const holder = await makeUser(holderEmail, "user");
+    const item = await makeItem({ currentHolderId: holder.id });
+    const result = await listInventoryAs(admin, {
+      q: "",
+      status: null,
+      category: null,
+      page: 1,
+      pageSize: 50,
+    });
+    const found = result.rows.find((r) => r.id === item.id);
+    expect(
+      (found as unknown as { currentHolderName: string | null })
+        .currentHolderName
+    ).toBe(holderEmail);
+  });
+
   it("hides retired items from non-staff list and detail", async () => {
     const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
     const item = await makeItem();
@@ -367,6 +386,7 @@ describe("catalog CRUD", () => {
       description: null,
       category: null,
       serial: null,
+      label: null,
       location: null,
       notes: null,
       imageUrl: null,
@@ -397,6 +417,7 @@ describe("catalog CRUD", () => {
       description: null,
       category: null,
       serial: null,
+      label: null,
       location: "Shelf B",
       notes: null,
       imageUrl: null,
@@ -417,6 +438,77 @@ describe("catalog CRUD", () => {
       name: "New",
       location: "Shelf B",
     });
+  });
+
+  it("persists label, exposing it to staff but not the public", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const created = await createInventoryItemAs(admin, {
+      name: "Camera",
+      description: null,
+      category: null,
+      serial: "SN-9",
+      label: "LAB-042",
+      location: null,
+      notes: null,
+      imageUrl: null,
+    });
+    expect(created.label).toBe("LAB-042");
+
+    const staffView = await getInventoryItemAs(admin, { id: created.id });
+    expect((staffView as unknown as { label: string }).label).toBe("LAB-042");
+
+    const publicView = await getInventoryItemAs(null, { id: created.id });
+    expect(publicView).not.toHaveProperty("label");
+  });
+
+  it("logs label changes in the edit log", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const created = await createInventoryItemAs(admin, {
+      name: "Camera",
+      description: null,
+      category: null,
+      serial: null,
+      label: "OLD-1",
+      location: null,
+      notes: null,
+      imageUrl: null,
+    });
+    await updateInventoryItemAs(admin, {
+      id: created.id,
+      name: "Camera",
+      description: null,
+      category: null,
+      serial: null,
+      label: "NEW-2",
+      location: null,
+      notes: null,
+      imageUrl: null,
+    });
+    const logs = await db
+      .select()
+      .from(inventoryItemEditLog)
+      .where(eq(inventoryItemEditLog.itemId, created.id));
+    expect(logs).toHaveLength(1);
+    expect(logs[0].changedFields).toContain("label");
+  });
+
+  it("exposes the current holder's name + email to staff, not the public", async () => {
+    const admin = await makeUser(`a-${Date.now()}@x.com`, "admin");
+    const holderEmail = `req-${Date.now()}@x.com`;
+    const holder = await makeUser(holderEmail, "user");
+    const item = await makeItem({ currentHolderId: holder.id });
+
+    const staffView = (await getInventoryItemAs(admin, {
+      id: item.id,
+    })) as unknown as {
+      currentHolderName: string | null;
+      currentHolderEmail: string | null;
+    };
+    expect(staffView.currentHolderEmail).toBe(holderEmail);
+    expect(staffView.currentHolderName).toBe(holderEmail);
+
+    const publicView = await getInventoryItemAs(null, { id: item.id });
+    expect(publicView).not.toHaveProperty("currentHolderName");
   });
 
   it("hard-delete refuses when status is checked_out", async () => {
@@ -741,6 +833,7 @@ describe("defense in depth: impl re-checks role on every staff write", () => {
         description: null,
         category: null,
         serial: null,
+        label: null,
         location: null,
         notes: null,
         imageUrl: null,

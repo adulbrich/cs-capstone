@@ -25,12 +25,15 @@ import { getInventoryItem, getItemHistory } from "#/server/inventory";
 
 interface StaffItem {
   category: string | null;
+  currentHolderEmail?: string | null;
   currentHolderId?: string | null;
   currentHolderLabel?: string | null;
+  currentHolderName?: string | null;
   currentRequestItemId?: string | null;
   description: string | null;
   id: string;
   imageUrl: string | null;
+  label?: string | null;
   location: string | null;
   name: string;
   notes?: string | null;
@@ -123,6 +126,8 @@ function AdminItemDetail() {
             <dd className="col-span-2">{item.location ?? "-"}</dd>
             <dt className="text-muted-foreground">Serial</dt>
             <dd className="col-span-2">{item.serial ?? "-"}</dd>
+            <dt className="text-muted-foreground">Label</dt>
+            <dd className="col-span-2">{item.label ?? "-"}</dd>
           </dl>
 
           {item.description && (
@@ -153,6 +158,8 @@ function AdminItemDetail() {
               name: item.name,
               status: item.status,
               currentHolderId: item.currentHolderId ?? null,
+              currentHolderName: item.currentHolderName ?? null,
+              currentHolderEmail: item.currentHolderEmail ?? null,
               currentHolderLabel: item.currentHolderLabel ?? null,
               currentRequestItemId: item.currentRequestItemId ?? null,
             }}

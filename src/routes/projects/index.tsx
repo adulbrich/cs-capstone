@@ -1,9 +1,12 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { useCallback } from "react";
 import { z } from "zod";
 import { EmptyState } from "#/components/empty-state";
 import { ProjectListItem } from "#/components/project-list-item";
 import { ProjectsFilterBar } from "#/components/projects-filter-bar";
 import { pageTitle } from "#/lib/page-title";
+import { useSeedViewFromStorage } from "#/lib/use-seed-view";
+import type { ViewMode } from "#/lib/view-preference";
 import { searchProjects } from "#/server/search";
 
 const searchSchema = z.object({
@@ -13,7 +16,9 @@ const searchSchema = z.object({
   archivedOnly: z.boolean().default(false),
   page: z.number().int().min(1).default(1),
   sort: z.enum(["relevance", "newest", "recommended"]).default("relevance"),
-  view: z.enum(["card", "row"]).default("card"),
+  // Optional so a param-less visit is detectable; the stored preference then
+  // seeds it. Absent from the URL defaults to "card" at render.
+  view: z.enum(["card", "row"]).optional(),
 });
 
 export const Route = createFileRoute("/projects/")({
@@ -38,6 +43,14 @@ export const Route = createFileRoute("/projects/")({
 function ProjectsList() {
   const { rows, total, page, pageSize } = Route.useLoaderData();
   const search = Route.useSearch();
+  const navigate = useNavigate({ from: "/projects/" });
+  const view = search.view ?? "card";
+  const seedView = useCallback(
+    (next: ViewMode) =>
+      navigate({ replace: true, search: (s) => ({ ...s, view: next }) }),
+    [navigate]
+  );
+  useSeedViewFromStorage(search.view, seedView);
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   return (
     <div className="px-4 py-6 md:p-8">
@@ -50,7 +63,7 @@ function ProjectsList() {
             program={search.program}
             q={search.q}
             sort={search.sort}
-            view={search.view}
+            view={view}
           />
         </div>
       </div>
@@ -59,13 +72,13 @@ function ProjectsList() {
       ) : (
         <div
           className={
-            search.view === "card"
+            view === "card"
               ? "mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5"
               : "mx-auto mt-6 flex max-w-4xl flex-col gap-3"
           }
         >
           {rows.map((p) => (
-            <ProjectListItem key={p.id} mode={search.view} project={p} />
+            <ProjectListItem key={p.id} mode={view} project={p} />
           ))}
         </div>
       )}
