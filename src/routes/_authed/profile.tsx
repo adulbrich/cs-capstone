@@ -4,6 +4,7 @@ import { AvatarUploader } from "#/components/avatar-uploader";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
+import { Switch } from "#/components/ui/switch";
 import { Textarea } from "#/components/ui/textarea";
 import { authClient } from "#/lib/auth-client";
 import { pageTitle } from "#/lib/page-title";
@@ -21,11 +22,59 @@ interface ProfileUser {
   id: string;
   image?: string | null;
   linkedin?: string | null;
+  mentorTeamCount?: number | null;
   name: string | null;
   role: string | null | undefined;
+  wantsToMentor?: boolean | null;
 }
 
-function Profile() {
+export function MentorFields({
+  wants,
+  count,
+  onToggle,
+  onCountChange,
+}: {
+  count: number;
+  onCountChange: (n: number) => void;
+  onToggle: (on: boolean) => void;
+  wants: boolean;
+}) {
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center gap-2">
+        <Switch
+          checked={wants}
+          id="wants-to-mentor"
+          onCheckedChange={onToggle}
+        />
+        <Label className="font-normal" htmlFor="wants-to-mentor">
+          I want to mentor a team
+        </Label>
+      </div>
+      <p className="text-muted-foreground text-xs">
+        For professionals and faculty, not students.
+      </p>
+      {wants && (
+        <div className="space-y-1.5">
+          <Label htmlFor="mentor-team-count">
+            How many teams can you mentor?
+          </Label>
+          <Input
+            className="w-24"
+            id="mentor-team-count"
+            max={5}
+            min={1}
+            onChange={(e) => onCountChange(Number(e.target.value))}
+            type="number"
+            value={count}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+export function Profile() {
   const router = useRouter();
   const ctx = Route.useRouteContext() as { user: ProfileUser };
   const user = ctx.user;
@@ -35,6 +84,12 @@ function Profile() {
   const [interestsStatus, setInterestsStatus] = useState<
     "idle" | "saving" | "saved" | "degraded" | "error"
   >("idle");
+  const [wantsToMentor, setWantsToMentor] = useState(
+    Boolean(user.wantsToMentor)
+  );
+  const [mentorTeamCount, setMentorTeamCount] = useState(
+    user.mentorTeamCount ?? 1
+  );
 
   useEffect(() => {
     void (async () => {
@@ -58,6 +113,8 @@ function Profile() {
           name: String(form.get("name") ?? ""),
           affiliation: String(form.get("affiliation") ?? "") || null,
           linkedin: String(form.get("linkedin") ?? "") || null,
+          wantsToMentor,
+          mentorTeamCount,
         },
       });
       setSaved(true);
@@ -148,6 +205,12 @@ function Profile() {
             type="url"
           />
         </div>
+        <MentorFields
+          count={mentorTeamCount}
+          onCountChange={setMentorTeamCount}
+          onToggle={setWantsToMentor}
+          wants={wantsToMentor}
+        />
         <Button className="w-full" type="submit">
           Save profile
         </Button>
