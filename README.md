@@ -203,7 +203,7 @@ serially.
 
 > TODO (future): integration tests currently run against the same database as
 > dev and TRUNCATE every table before each test, which wipes dev data. Point them
-> at a dedicated `cs_capstone_test` database via a separate `TEST_DATABASE_URL`.
+> at a dedicated `eecs_capstone_test` database via a separate `TEST_DATABASE_URL`.
 > See the Drizzle section of [`docs/QUIRKS.md`](./docs/QUIRKS.md) for details.
 
 ## Linting & Formatting

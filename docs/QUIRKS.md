@@ -259,7 +259,7 @@ Every timestamp column uses `timestamp("col", { withTimezone: true })`. Stored a
 
 The integration test setup (`src/test/setup.integration.ts`) calls `TRUNCATE TABLE ... CASCADE` on every table before each test. The test config uses the same `DATABASE_URL` as dev. **Running `npm run test:integration` deletes your dev data.** If your project disappears after running tests, that is why.
 
-Long-term fix: use a separate `cs_capstone_test` database with its own `DATABASE_URL` in `vitest.integration.config.ts`. Not yet implemented.
+Long-term fix: use a separate `eecs_capstone_test` database with its own `DATABASE_URL` in `vitest.integration.config.ts`. Not yet implemented.
 
 ---
 
