@@ -1,6 +1,7 @@
-import { useNavigate } from "@tanstack/react-router";
+import { Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { listCategories } from "#/server/categories";
+import { getMyInterests } from "#/server/interests";
 import { listPrograms } from "#/server/programs";
 import { FilterSwitch } from "./filter-switch";
 import { Checkbox } from "./ui/checkbox";
@@ -31,6 +32,7 @@ interface Props {
   categories: string[];
   program: string | null;
   q: string;
+  sort: "relevance" | "newest" | "recommended";
   view: "card" | "row";
 }
 
@@ -39,12 +41,14 @@ export function ProjectsFilterBar({
   categories,
   program,
   archivedOnly,
+  sort,
   view,
 }: Props) {
   const navigate = useNavigate({ from: "/projects/" });
   const [allCategories, setAllCategories] = useState<Category[]>([]);
   const [allPrograms, setAllPrograms] = useState<Program[]>([]);
   const [queryDraft, setQueryDraft] = useState(q);
+  const [canRecommend, setCanRecommend] = useState(false);
 
   useEffect(() => {
     void (async () => {
@@ -57,6 +61,12 @@ export function ProjectsFilterBar({
         setAllPrograms(progs as Program[]);
       } catch {
         // ignored
+      }
+      try {
+        const interests = await getMyInterests();
+        setCanRecommend(interests.hasEmbedding);
+      } catch {
+        // Signed out, or the call failed: the option stays disabled.
       }
     })();
   }, []);
@@ -89,6 +99,10 @@ export function ProjectsFilterBar({
     });
   }
 
+  function setSort(value: "relevance" | "newest" | "recommended") {
+    void navigate({ search: (prev) => ({ ...prev, sort: value, page: 1 }) });
+  }
+
   function clearAll() {
     void navigate({
       search: (prev) => ({
@@ -97,6 +111,7 @@ export function ProjectsFilterBar({
         categories: [],
         program: null,
         archivedOnly: false,
+        sort: "relevance",
         page: 1,
       }),
     });
@@ -115,7 +130,12 @@ export function ProjectsFilterBar({
     grouped.set(c.type, arr);
   }
 
-  const hasAnyFilter = q || categories.length > 0 || program || archivedOnly;
+  const hasAnyFilter =
+    q ||
+    categories.length > 0 ||
+    program ||
+    archivedOnly ||
+    sort !== "relevance";
 
   return (
     <div className="rounded-lg border border-border p-4">
@@ -130,7 +150,7 @@ export function ProjectsFilterBar({
         <ViewToggle current={view} />
       </div>
 
-      <div className="mt-3 grid gap-3 md:grid-cols-2">
+      <div className="mt-3 grid gap-3 md:grid-cols-3">
         <div>
           <Label htmlFor="filter-program">Program</Label>
           <Select
@@ -150,6 +170,26 @@ export function ProjectsFilterBar({
             </SelectContent>
           </Select>
         </div>
+        <div>
+          <Label htmlFor="filter-sort">Sort</Label>
+          <Select
+            onValueChange={(v) =>
+              setSort(v as "relevance" | "newest" | "recommended")
+            }
+            value={sort}
+          >
+            <SelectTrigger className="mt-1 w-full" id="filter-sort">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="relevance">Most relevant</SelectItem>
+              <SelectItem value="newest">Newest</SelectItem>
+              <SelectItem disabled={!canRecommend} value="recommended">
+                Recommended for you
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
         <div className="flex items-end">
           <FilterSwitch
             checked={archivedOnly}
@@ -159,6 +199,23 @@ export function ProjectsFilterBar({
           />
         </div>
       </div>
+
+      {sort === "recommended" && canRecommend && (
+        <p className="mt-2 text-muted-foreground text-xs">
+          Ranked by your interests.{" "}
+          <Link className="text-brand hover:underline" to="/profile">
+            Edit your interests
+          </Link>
+        </p>
+      )}
+      {!canRecommend && (
+        <p className="mt-2 text-muted-foreground text-xs">
+          <Link className="text-brand hover:underline" to="/profile">
+            Add your interests
+          </Link>{" "}
+          to sort projects by how well they match you.
+        </p>
+      )}
 
       {grouped.size > 0 && (
         <div className="mt-3">

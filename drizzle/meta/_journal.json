@@ -43,6 +43,13 @@
       "when": 1780880124049,
       "tag": "0005_futuristic_red_ghost",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1784768723748,
+      "tag": "0006_living_spectrum",
+      "breakpoints": true
     }
   ]
 }

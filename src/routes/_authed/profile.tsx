@@ -1,11 +1,13 @@
-import { createFileRoute, useRouter } from "@tanstack/react-router";
-import { useState } from "react";
+import { createFileRoute, Link, useRouter } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { AvatarUploader } from "#/components/avatar-uploader";
 import { Button } from "#/components/ui/button";
 import { Input } from "#/components/ui/input";
 import { Label } from "#/components/ui/label";
+import { Textarea } from "#/components/ui/textarea";
 import { authClient } from "#/lib/auth-client";
 import { pageTitle } from "#/lib/page-title";
+import { getMyInterests, saveMyInterests } from "#/server/interests";
 import { updateProfile } from "#/server/profile";
 
 export const Route = createFileRoute("/_authed/profile")({
@@ -29,6 +31,21 @@ function Profile() {
   const user = ctx.user;
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
+  const [interests, setInterests] = useState("");
+  const [interestsStatus, setInterestsStatus] = useState<
+    "idle" | "saving" | "saved" | "degraded" | "error"
+  >("idle");
+
+  useEffect(() => {
+    void (async () => {
+      try {
+        const result = await getMyInterests();
+        setInterests(result.interestsText);
+      } catch {
+        // Section stays empty; saving still works.
+      }
+    })();
+  }, []);
 
   async function onSaveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -63,6 +80,19 @@ function Profile() {
       setError(cpError.message ?? "Password change failed");
     } else {
       setSaved(true);
+    }
+  }
+
+  async function onSaveInterests(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setInterestsStatus("saving");
+    try {
+      const result = await saveMyInterests({
+        data: { interestsText: interests },
+      });
+      setInterestsStatus(result.embedded ? "saved" : "degraded");
+    } catch {
+      setInterestsStatus("error");
     }
   }
 
@@ -121,6 +151,59 @@ function Profile() {
         <Button className="w-full" type="submit">
           Save profile
         </Button>
+      </form>
+
+      <h2 className="mt-8 font-semibold text-lg">Your interests</h2>
+      <p className="mt-1 text-muted-foreground text-sm">
+        Describe what you would like to work on, in your own words. Only you can
+        see this. It is used to sort projects by how well they match you.
+      </p>
+      <form className="mt-3" onSubmit={onSaveInterests}>
+        <Label htmlFor="interests">Interests</Label>
+        <Textarea
+          aria-describedby="interests-count"
+          className="mt-1"
+          id="interests"
+          maxLength={2000}
+          onChange={(e) => {
+            setInterests(e.target.value);
+            setInterestsStatus("idle");
+          }}
+          placeholder="Robotics, embedded systems, and anything involving sensor data. I have taken CS 344 and I am comfortable with C and Python."
+          rows={5}
+          value={interests}
+        />
+        <p className="mt-1 text-muted-foreground text-xs" id="interests-count">
+          {interests.length} / 2000
+        </p>
+        <Button
+          className="mt-2"
+          disabled={interestsStatus === "saving"}
+          type="submit"
+        >
+          {interestsStatus === "saving" ? "Saving..." : "Save interests"}
+        </Button>
+        <output className="mt-2 block text-sm">
+          {interestsStatus === "saved" && (
+            <span className="text-muted-foreground">
+              Saved.{" "}
+              <Link search={{ sort: "recommended" }} to="/projects">
+                See your recommended projects
+              </Link>
+            </span>
+          )}
+          {interestsStatus === "degraded" && (
+            <span className="text-muted-foreground">
+              Saved, but we could not prepare your recommendations just now.
+              Save again to retry.
+            </span>
+          )}
+          {interestsStatus === "error" && (
+            <span className="text-destructive">
+              Could not save your interests. Please try again.
+            </span>
+          )}
+        </output>
       </form>
 
       <h2 className="mt-8 font-semibold text-lg">Change password</h2>
