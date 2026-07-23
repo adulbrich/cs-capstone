@@ -136,19 +136,31 @@ Auth's CLI into `src/db/auth-schema.ts` and re-exported from `src/db/schema.ts`)
 > trap. Use `npm run db:seed:admin` or a direct `db:studio` edit to bootstrap the
 > second admin.
 
-### Regenerating the Better Auth schema
+### Changing the Better Auth schema
 
-If you change Better Auth plugins or `additionalFields`, regenerate:
+`src/db/auth-schema.ts` is **hand-maintained**. Do not run `@better-auth/cli
+generate` against it: that package lags the library (the CLI is stuck on 1.4.x
+while we run `better-auth` 1.6.x), and its output silently drops the
+timezone-aware timestamps, the session/account/verification indexes, and the
+`role` NOT NULL default that this file carries. Running it would produce a
+destructive migration.
 
-```bash
-npx -y @better-auth/cli generate --config src/lib/auth.ts --output src/db/auth-schema.ts
-npm run db:generate
-npm run db:migrate
-```
+To add or change a Better Auth `additionalField`:
 
-Never hand-edit `src/db/auth-schema.ts`; it is overwritten by the CLI. The
-`affiliation` and `linkedin` columns are restored automatically because they live
-in `user.additionalFields` in `src/lib/auth.ts`.
+1. Add the field to `user.additionalFields` in `src/lib/auth.ts` (this is what
+   Better Auth reads at runtime).
+2. Add the matching column to the `user` table in `src/db/auth-schema.ts` by
+   hand, with the correct type and a DB default (so existing rows backfill).
+3. Generate and apply the migration, reviewing the SQL to confirm it only adds
+   your column:
+
+   ```bash
+   npm run db:generate
+   npm run db:migrate
+   ```
+
+If the `@better-auth/cli` package ever catches up to the installed `better-auth`
+version, this file could return to CLI generation; until then, edit it directly.
 
 ### Email transport
 

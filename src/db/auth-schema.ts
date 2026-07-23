@@ -26,8 +26,12 @@ export const user = pgTable("user", {
   banned: boolean("banned").default(false),
   banReason: text("ban_reason"),
   banExpires: timestamp("ban_expires", { withTimezone: true }),
-  // additionalFields from src/lib/auth.ts user.additionalFields
-  // The CLI re-includes these on regen because they live in the auth config.
+  // Custom user columns (mirror user.additionalFields in src/lib/auth.ts).
+  // This file is HAND-MAINTAINED, not CLI-generated: @better-auth/cli lags
+  // better-auth (1.4.x vs the installed 1.6.x) and its output silently drops
+  // the withTimezone timestamps, the indexes below, and the role default. Add
+  // or change these columns by editing this file directly, then run
+  // db:generate / db:migrate. See the README "Better Auth schema" section.
   affiliation: text("affiliation"),
   linkedin: text("linkedin"),
   wantsToMentor: boolean("wants_to_mentor").notNull().default(false),
