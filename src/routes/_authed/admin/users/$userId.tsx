@@ -20,6 +20,16 @@ import { getUser } from "#/server/users";
 
 type Role = "user" | "instructor" | "admin";
 
+const PROVIDER_LABELS: Record<string, string> = {
+  github: "GitHub",
+  google: "Google",
+  linkedin: "LinkedIn",
+  discord: "Discord",
+  credential: "Email & password",
+};
+
+const providerLabel = (id: string) => PROVIDER_LABELS[id] ?? id;
+
 export const Route = createFileRoute("/_authed/admin/users/$userId")({
   head: () => ({ meta: [{ title: pageTitle("Manage User") }] }),
   beforeLoad: async () => {
@@ -38,7 +48,7 @@ export const Route = createFileRoute("/_authed/admin/users/$userId")({
 
 function UserDetail() {
   const router = useRouter();
-  const { user, projectCount, recentProjects, bookmarkCount } =
+  const { user, projectCount, recentProjects, bookmarkCount, providers } =
     Route.useLoaderData();
   const { actorId } = Route.useRouteContext();
   const isSelf = actorId === user.id;
@@ -103,6 +113,12 @@ function UserDetail() {
           <a href={user.linkedin}>{user.linkedin}</a>
         </p>
       )}
+      <p className="text-sm">
+        <span className="text-muted-foreground">Sign-in: </span>
+        {providers.length > 0
+          ? providers.map(providerLabel).join(", ")
+          : "No linked account"}
+      </p>
       <p className="text-sm">
         <span className="text-muted-foreground">Joined: </span>
         {new Date(user.createdAt).toLocaleDateString()}

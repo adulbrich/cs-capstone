@@ -1,5 +1,12 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { BookOpen, FolderKanban, Package, Tag, Users } from "lucide-react";
+import {
+  ArrowRight,
+  BookOpen,
+  FolderKanban,
+  Package,
+  Tag,
+  Users,
+} from "lucide-react";
 import { getSession } from "#/lib/auth-guards";
 import { pageTitle } from "#/lib/page-title";
 import { getAdminStats } from "#/server/admin";
@@ -29,6 +36,35 @@ function StatCard({ label, value }: { label: string; value: number }) {
   );
 }
 
+// A count box that turns into a colored, clickable alert when it has something
+// awaiting action (styled with the same tokens as the "submitted" status
+// badge). The typed Link stays at each call site; only the inner content and
+// styling are shared, so route/search validation is preserved.
+const ALERT_CARD_CLASS =
+  "rounded-lg border p-4 transition-shadow hover:shadow-md";
+const ALERT_CARD_STYLE = {
+  backgroundColor: "var(--status-info-bg)",
+  borderColor: "var(--status-info)",
+};
+const ALERT_TEXT_STYLE = { color: "var(--status-info)" };
+
+function AlertCardBody({ label, value }: { label: string; value: number }) {
+  return (
+    <>
+      <p className="flex items-center gap-1 text-sm" style={ALERT_TEXT_STYLE}>
+        {label}
+        <ArrowRight className="h-3.5 w-3.5" />
+      </p>
+      <p
+        className="mt-1 font-semibold text-2xl tabular-nums"
+        style={ALERT_TEXT_STYLE}
+      >
+        {value}
+      </p>
+    </>
+  );
+}
+
 interface NavCard {
   description: string;
   icon: React.ElementType;
@@ -52,7 +88,8 @@ function NavCard({ to, icon: Icon, label, description }: NavCard) {
 }
 
 function AdminHome() {
-  const { total, published, submitted, userTotal } = Route.useLoaderData();
+  const { total, published, submitted, userTotal, pendingRequests } =
+    Route.useLoaderData();
   const { role } = Route.useRouteContext();
   const isAdmin = role === "admin";
 
@@ -67,7 +104,37 @@ function AdminHome() {
         <div className="mt-2 grid grid-cols-2 gap-3 sm:grid-cols-4">
           <StatCard label="Total projects" value={total} />
           <StatCard label="Published" value={published} />
-          <StatCard label="Awaiting review" value={submitted} />
+          {submitted > 0 ? (
+            <Link
+              className={ALERT_CARD_CLASS}
+              search={{
+                includeSoftDeleted: false,
+                program: null,
+                status: "submitted",
+              }}
+              style={ALERT_CARD_STYLE}
+              to="/admin/projects"
+            >
+              <AlertCardBody label="Awaiting review" value={submitted} />
+            </Link>
+          ) : (
+            <StatCard label="Awaiting review" value={submitted} />
+          )}
+          {pendingRequests > 0 ? (
+            <Link
+              className={ALERT_CARD_CLASS}
+              search={{ tab: "pending" }}
+              style={ALERT_CARD_STYLE}
+              to="/admin/inventory/requests"
+            >
+              <AlertCardBody
+                label="Inventory requests"
+                value={pendingRequests}
+              />
+            </Link>
+          ) : (
+            <StatCard label="Inventory requests" value={pendingRequests} />
+          )}
           {isAdmin && <StatCard label="Users" value={userTotal} />}
         </div>
       </section>

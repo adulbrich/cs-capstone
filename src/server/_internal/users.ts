@@ -1,6 +1,12 @@
 import { and, desc, eq, ilike, isNull, or, type SQL, sql } from "drizzle-orm";
 import { db } from "#/db";
-import { projectBookmarks, projects, session, user } from "#/db/schema";
+import {
+  account,
+  projectBookmarks,
+  projects,
+  session,
+  user,
+} from "#/db/schema";
 import { requireUser } from "#/lib/_internal/auth-guards";
 import { isStaff } from "#/lib/project-visibility";
 import type { BanUserInput, ListUsersInput, SetUserRoleInput } from "../users";
@@ -134,11 +140,20 @@ export async function getUserImpl(data: { id: string }) {
     .from(projectBookmarks)
     .where(eq(projectBookmarks.userId, data.id));
 
+  // Sign-in sources (Better Auth account providers): "github", "google",
+  // "credential" (email/password), etc. A user usually has one.
+  const accounts = await db
+    .select({ providerId: account.providerId })
+    .from(account)
+    .where(eq(account.userId, data.id));
+  const providers = [...new Set(accounts.map((a) => a.providerId))];
+
   return {
     user: target,
     projectCount,
     recentProjects,
     bookmarkCount,
+    providers,
   };
 }
 
