@@ -31,7 +31,7 @@ variable "az_count" {
 variable "db_name" {
   description = "Postgres database name."
   type        = string
-  default     = "cs_capstone"
+  default     = "eecs_capstone"
 }
 
 variable "db_username" {
