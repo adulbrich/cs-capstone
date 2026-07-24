@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   canEditProject,
   canSeeProject,
+  canSeeStatusHistory,
   filterCommentsForViewer,
   isStaff,
   stripStaffOnlyFields,
@@ -34,11 +35,16 @@ describe("isStaff", () => {
 });
 
 describe("canSeeProject", () => {
-  it("anon sees only published, non-deleted", () => {
+  it("anon sees published and archived, non-deleted", () => {
     expect(canSeeProject(p({ status: "published" }), anon)).toBe(true);
+    expect(canSeeProject(p({ status: "archived" }), anon)).toBe(true);
     expect(canSeeProject(p({ status: "draft" }), anon)).toBe(false);
+    expect(canSeeProject(p({ status: "submitted" }), anon)).toBe(false);
     expect(
       canSeeProject(p({ status: "published", deletedAt: new Date() }), anon)
+    ).toBe(false);
+    expect(
+      canSeeProject(p({ status: "archived", deletedAt: new Date() }), anon)
     ).toBe(false);
   });
 
@@ -50,8 +56,9 @@ describe("canSeeProject", () => {
     ).toBe(false);
   });
 
-  it("non-owner non-staff user sees only published non-deleted", () => {
+  it("non-owner non-staff user sees published and archived, non-deleted", () => {
     expect(canSeeProject(p({ status: "published" }), other)).toBe(true);
+    expect(canSeeProject(p({ status: "archived" }), other)).toBe(true);
     expect(canSeeProject(p({ status: "submitted" }), other)).toBe(false);
   });
 
@@ -61,6 +68,19 @@ describe("canSeeProject", () => {
       canSeeProject(p({ status: "published", deletedAt: new Date() }), admin)
     ).toBe(true);
     expect(canSeeProject(p({ status: "draft" }), instructor)).toBe(true);
+  });
+});
+
+describe("canSeeStatusHistory", () => {
+  it("is visible to staff and the proposer only", () => {
+    expect(canSeeStatusHistory(p({ status: "published" }), admin)).toBe(true);
+    expect(canSeeStatusHistory(p({ status: "published" }), instructor)).toBe(
+      true
+    );
+    expect(canSeeStatusHistory(p({ status: "published" }), owner)).toBe(true);
+    expect(canSeeStatusHistory(p({ status: "published" }), other)).toBe(false);
+    expect(canSeeStatusHistory(p({ status: "published" }), anon)).toBe(false);
+    expect(canSeeStatusHistory(p({ status: "archived" }), anon)).toBe(false);
   });
 });
 

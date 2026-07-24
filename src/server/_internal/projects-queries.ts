@@ -11,6 +11,7 @@ import {
 import { readSession } from "#/lib/_internal/auth-guards";
 import {
   canSeeProject,
+  canSeeStatusHistory,
   filterCommentsForViewer,
   isStaff,
   stripStaffOnlyFields,
@@ -144,18 +145,23 @@ export async function getProjectAs(viewer: Viewer, data: { id: string }) {
     embeddingSourceHash: null,
     embeddingUpdatedAt: null,
   };
-  const history = await db
-    .select({
-      id: projectStatusHistory.id,
-      oldStatus: projectStatusHistory.oldStatus,
-      newStatus: projectStatusHistory.newStatus,
-      changedBy: projectStatusHistory.changedBy,
-      comment: projectStatusHistory.comment,
-      createdAt: projectStatusHistory.createdAt,
-    })
-    .from(projectStatusHistory)
-    .where(eq(projectStatusHistory.projectId, data.id))
-    .orderBy(asc(projectStatusHistory.createdAt));
+  // The status timeline (and its comments) is private to staff and the
+  // proposer. Everyone else gets an empty history, so the field is not just
+  // hidden in the UI but never leaves the server.
+  const history = canSeeStatusHistory(project, viewer)
+    ? await db
+        .select({
+          id: projectStatusHistory.id,
+          oldStatus: projectStatusHistory.oldStatus,
+          newStatus: projectStatusHistory.newStatus,
+          changedBy: projectStatusHistory.changedBy,
+          comment: projectStatusHistory.comment,
+          createdAt: projectStatusHistory.createdAt,
+        })
+        .from(projectStatusHistory)
+        .where(eq(projectStatusHistory.projectId, data.id))
+        .orderBy(asc(projectStatusHistory.createdAt))
+    : [];
 
   const viewerIsStaff = isStaff(viewer);
   const viewerIsOwner = !!viewer && project.proposerId === viewer.id;

@@ -9,6 +9,15 @@ import {
 } from "#/server/projects";
 import { listProjectEditLog } from "#/server/projects-queries";
 import { Button } from "./ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "./ui/dialog";
+import { Label } from "./ui/label";
 import { Textarea } from "./ui/textarea";
 
 const WORKFLOW: readonly Status[] = [
@@ -55,7 +64,11 @@ export function StaffProjectPanel({
 }) {
   const [comment, setComment] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [pendingOverride, setPendingOverride] = useState<Status | null>(null);
+  const [pending, setPending] = useState<{
+    target: Status;
+    force: boolean;
+  } | null>(null);
+  const [busy, setBusy] = useState(false);
   const [editLog, setEditLog] = useState<EditLogRow[]>([]);
 
   useEffect(() => {
@@ -73,23 +86,36 @@ export function StaffProjectPanel({
 
   const currentStatus = project.status as Status;
 
-  async function transition(target: Status, force = false) {
+  function openTransition(target: Status, force: boolean) {
     setError(null);
+    setComment("");
+    setPending({ target, force });
+  }
+
+  function closeModal() {
+    setPending(null);
+    setComment("");
+  }
+
+  async function confirmTransition() {
+    if (!pending) {
+      return;
+    }
+    setError(null);
+    setBusy(true);
     try {
-      if (force) {
-        await forceSetProjectStatus({
-          data: { id: project.id, status: target, comment },
-        });
+      const data = { id: project.id, status: pending.target, comment };
+      if (pending.force) {
+        await forceSetProjectStatus({ data });
       } else {
-        await performTransition({
-          data: { id: project.id, status: target, comment },
-        });
+        await performTransition({ data });
       }
-      setComment("");
-      setPendingOverride(null);
+      closeModal();
       onChanged();
     } catch (err) {
       setError((err as Error).message);
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -114,9 +140,19 @@ export function StaffProjectPanel({
     }
   }
 
+  const isChangesRequested = pending?.target === "changes_requested";
+
   return (
     <div className="mt-8 rounded-lg border-(--brand-primary-tint) border-2 bg-card p-4">
-      <p className="island-kicker mb-3">Staff panel</p>
+      <div className="mb-3 flex items-center justify-between gap-2">
+        <p className="island-kicker">Staff panel</p>
+        <span className="text-muted-foreground text-xs">
+          Teams supported:{" "}
+          <span className="font-medium text-foreground">
+            {project.teamsSupported ?? 1}
+          </span>
+        </span>
+      </div>
 
       {/* Status stepper — vertical on mobile, horizontal on md+ */}
       <div className="md:overflow-x-auto md:pb-1">
@@ -168,13 +204,7 @@ export function StaffProjectPanel({
                 <button
                   className={pillClass}
                   disabled={isCurrent}
-                  onClick={() => {
-                    if (isNormal) {
-                      void transition(s);
-                    } else {
-                      setPendingOverride(s);
-                    }
-                  }}
+                  onClick={() => openTransition(s, !isNormal)}
                   title={pillTitle}
                   type="button"
                 >
@@ -201,58 +231,79 @@ export function StaffProjectPanel({
         </span>
       </div>
 
-      {/* Staff-only project details */}
-      <section className="mt-4 border-border border-t pt-4">
-        <p className="text-sm">
-          <span className="text-muted-foreground">Teams supported: </span>
-          {project.teamsSupported ?? 1}
-        </p>
-      </section>
-
-      {/* Comment textarea */}
-      <section className="mt-4 space-y-1.5">
-        <label className="block font-medium text-sm" htmlFor="staff-comment">
-          Comment (added to status history)
-        </label>
-        <Textarea
-          id="staff-comment"
-          onChange={(e) => setComment(e.target.value)}
-          placeholder="Optional — explain the action"
-          rows={2}
-          value={comment}
-        />
-      </section>
-
-      {/* Override confirmation */}
-      {pendingOverride && (
-        <div className="mt-3 rounded-md border border-border bg-secondary p-3 text-sm">
-          <p>
-            Override workflow: force status to{" "}
-            <strong>{STATUS_LABEL[pendingOverride]}</strong>? This bypasses the
-            normal review process.
-          </p>
-          <div className="mt-2 flex gap-2">
+      {/* Status-change confirmation modal (normal + override) */}
+      <Dialog
+        onOpenChange={(open) => {
+          if (!open) {
+            closeModal();
+          }
+        }}
+        open={pending !== null}
+      >
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>
+              {pending?.force ? "Override to " : "Move to "}
+              {pending ? STATUS_LABEL[pending.target] : ""}
+            </DialogTitle>
+            <DialogDescription>
+              {(() => {
+                if (isChangesRequested) {
+                  return "Tell the proposer what needs to change. A comment is required and they will be notified.";
+                }
+                if (pending?.force) {
+                  return "This overrides the workflow and bypasses the normal review process.";
+                }
+                return "Add a comment to record why you made this change.";
+              })()}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-1.5">
+            <Label htmlFor="staff-comment">
+              {isChangesRequested
+                ? "What needs to change? (required)"
+                : "Comment (optional)"}
+            </Label>
+            <Textarea
+              id="staff-comment"
+              onChange={(e) => setComment(e.target.value)}
+              placeholder={
+                isChangesRequested
+                  ? "Describe what the proposer needs to change"
+                  : "Explain the action"
+              }
+              rows={3}
+              value={comment}
+            />
+            <p className="text-muted-foreground text-xs">
+              The project proposer can see this comment.
+            </p>
+          </div>
+          {error && <p className="text-destructive text-sm">{error}</p>}
+          <DialogFooter>
             <Button
-              onClick={() => void transition(pendingOverride, true)}
-              size="sm"
-              type="button"
-              variant="destructive"
-            >
-              Confirm override
-            </Button>
-            <Button
-              onClick={() => setPendingOverride(null)}
-              size="sm"
+              disabled={busy}
+              onClick={closeModal}
               type="button"
               variant="ghost"
             >
               Cancel
             </Button>
-          </div>
-        </div>
-      )}
+            <Button
+              disabled={busy || (isChangesRequested && !comment.trim())}
+              onClick={() => void confirmTransition()}
+              type="button"
+              variant={pending?.force ? "destructive" : "default"}
+            >
+              {busy ? "Saving..." : "Confirm"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
-      {error && <p className="mt-2 text-destructive text-sm">{error}</p>}
+      {error && !pending && (
+        <p className="mt-2 text-destructive text-sm">{error}</p>
+      )}
 
       {/* Danger zone */}
       <section className="mt-5 border-border border-t pt-4">

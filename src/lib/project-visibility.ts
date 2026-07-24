@@ -39,7 +39,22 @@ export function canSeeProject(
   if (isOwner(project, viewer)) {
     return true;
   }
-  return project.status === "published";
+  // Published and archived projects are part of the public catalog (the
+  // projects list exposes both, archived via the "archived only" filter), so a
+  // detail page must not 404 for a project the list linked to.
+  return project.status === "published" || project.status === "archived";
+}
+
+/**
+ * The status timeline (transition history and its comments) is private to the
+ * people involved in the review: staff and the project's proposer. Everyone
+ * else, signed in or not, sees only the public metadata and the current status.
+ */
+export function canSeeStatusHistory(
+  project: VisibleProject,
+  viewer: Viewer
+): boolean {
+  return isStaff(viewer) || isOwner(project, viewer);
 }
 
 export function canEditProject(

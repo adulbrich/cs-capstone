@@ -189,12 +189,14 @@ function ProjectDetail() {
       />
       <UrlSection url={project.url as string | null} />
 
-      <section className="mt-8">
-        <h2 className="font-semibold text-lg">Status history</h2>
-        <div className="mt-3">
-          <StatusTimeline rows={history} />
-        </div>
-      </section>
+      {(viewerIsStaff || viewerIsOwner) && (
+        <section className="mt-8">
+          <h2 className="font-semibold text-lg">Status history</h2>
+          <div className="mt-3">
+            <StatusTimeline rows={history} />
+          </div>
+        </section>
+      )}
 
       {(viewerIsOwner || viewerIsStaff) && (
         <section className="mt-8">

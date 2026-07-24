@@ -23,16 +23,24 @@ export async function recordStatusChangeNotifications(
   tx: Tx,
   project: Project,
   newStatus: string,
-  actorId: string
+  actorId: string,
+  comment?: string | null
 ): Promise<void> {
   if (!project.proposerId || project.proposerId === actorId) {
     return;
   }
+  const changesRequested = newStatus === "changes_requested";
+  const trimmed = comment?.trim();
   await tx.insert(notifications).values({
     userId: project.proposerId,
     type: "status_change",
-    title: `Your project '${project.title}' is now ${newStatus}`,
-    message: `Status changed to ${newStatus}.`,
+    title: changesRequested
+      ? `Changes requested on '${project.title}'`
+      : `Your project '${project.title}' is now ${newStatus}`,
+    message:
+      changesRequested && trimmed
+        ? `Changes requested: ${trimmed}`
+        : `Status changed to ${newStatus}.`,
     link: `/projects/${project.id}`,
   });
 }

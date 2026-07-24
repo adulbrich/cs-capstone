@@ -11,10 +11,13 @@ import {
 import { auth } from "#/lib/auth";
 import {
   createProjectAs,
+  forceTransitionAs,
+  hardDeleteProjectAs,
   performTransitionAs,
   softDeleteProjectAs,
   updateProjectAs,
 } from "#/server/_internal/projects";
+import { getProjectAs } from "#/server/_internal/projects-queries";
 
 async function makeUser(email: string, role: "user" | "admin") {
   await auth.api.signUpEmail({
@@ -200,5 +203,120 @@ describe("transitions on an unlinked (null proposer) project", () => {
       .from(notifications)
       .where(eq(notifications.link, `/projects/${project.id}`));
     expect(notes).toHaveLength(0);
+  });
+});
+
+// Staff-only data and actions must be enforced server-side, not merely hidden
+// in the UI: a non-staff (or anonymous) caller hitting the server functions
+// directly must never receive staff-only fields or succeed at staff-only writes.
+describe("staff-only data and actions are inaccessible to non-staff", () => {
+  it("getProjectAs strips notes and proposerEmail for anonymous and non-staff viewers", async () => {
+    const admin = await makeUser(`sec-a-${Date.now()}@x.com`, "admin");
+    const other = await makeUser(`sec-o-${Date.now()}@x.com`, "user");
+    const { id } = await createProjectAs(admin, {
+      ...baseProject(),
+      notes: "internal staff note",
+      proposerEmail: "proposer@example.edu",
+    });
+    await forceTransitionAs(admin, id, "published");
+
+    const asStaff = await getProjectAs(admin, { id });
+    expect((asStaff.project as { notes: unknown }).notes).toBe(
+      "internal staff note"
+    );
+
+    for (const viewer of [null, { id: other.id, role: other.role }]) {
+      const seen = await getProjectAs(viewer, { id });
+      expect(seen.project).not.toBeNull();
+      expect((seen.project as { notes: unknown }).notes).toBeNull();
+      expect(
+        (seen.project as { proposerEmail: unknown }).proposerEmail
+      ).toBeNull();
+      expect(seen.viewerIsStaff).toBe(false);
+    }
+  });
+
+  it("staff-only writes reject a non-staff, non-owner caller", async () => {
+    const admin = await makeUser(`sec-a2-${Date.now()}@x.com`, "admin");
+    const other = await makeUser(`sec-o2-${Date.now()}@x.com`, "user");
+    const { id } = await createProjectAs(admin, baseProject());
+    const intruder = { id: other.id, role: other.role };
+
+    await expect(forceTransitionAs(intruder, id, "published")).rejects.toThrow(
+      /Forbidden/
+    );
+    await expect(
+      performTransitionAs(intruder, id, "submitted")
+    ).rejects.toThrow(/Forbidden/);
+    await expect(hardDeleteProjectAs(intruder, id)).rejects.toThrow(
+      /Forbidden/
+    );
+  });
+});
+
+describe("status timeline visibility and changes-requested feedback", () => {
+  it("returns the status timeline only to staff and the proposer", async () => {
+    const admin = await makeUser(`th-a-${Date.now()}@x.com`, "admin");
+    const owner = await makeUser(`th-o-${Date.now()}@x.com`, "user");
+    const other = await makeUser(`th-x-${Date.now()}@x.com`, "user");
+    const { id } = await createProjectAs(owner, baseProject());
+    await performTransitionAs(owner, id, "submitted");
+    await forceTransitionAs(admin, id, "published");
+
+    const staffView = await getProjectAs(admin, { id });
+    const ownerView = await getProjectAs(
+      { id: owner.id, role: owner.role },
+      { id }
+    );
+    const otherView = await getProjectAs(
+      { id: other.id, role: other.role },
+      { id }
+    );
+    const anonView = await getProjectAs(null, { id });
+
+    expect(staffView.history.length).toBeGreaterThan(0);
+    expect(ownerView.history.length).toBeGreaterThan(0);
+    // Non-owner and anonymous viewers can see the published project but not
+    // its status timeline.
+    expect(otherView.project).not.toBeNull();
+    expect(otherView.history).toHaveLength(0);
+    expect(anonView.project).not.toBeNull();
+    expect(anonView.history).toHaveLength(0);
+  });
+
+  it("requires a comment when requesting changes", async () => {
+    const admin = await makeUser(`cr-a-${Date.now()}@x.com`, "admin");
+    const owner = await makeUser(`cr-o-${Date.now()}@x.com`, "user");
+    const { id } = await createProjectAs(owner, baseProject());
+    await performTransitionAs(owner, id, "submitted");
+
+    await expect(
+      performTransitionAs(admin, id, "changes_requested")
+    ).rejects.toThrow(/comment describing the requested changes/);
+    await expect(
+      performTransitionAs(admin, id, "changes_requested", "Add unit tests.")
+    ).resolves.toMatchObject({ status: "changes_requested" });
+  });
+
+  it("notifies the proposer with the changes-requested feedback text", async () => {
+    const admin = await makeUser(`crn-a-${Date.now()}@x.com`, "admin");
+    const owner = await makeUser(`crn-o-${Date.now()}@x.com`, "user");
+    const { id } = await createProjectAs(owner, baseProject());
+    await performTransitionAs(owner, id, "submitted");
+    await performTransitionAs(
+      admin,
+      id,
+      "changes_requested",
+      "Please tighten the scope."
+    );
+
+    const notifs = await db
+      .select()
+      .from(notifications)
+      .where(eq(notifications.userId, owner.id));
+    const changeNotif = notifs.find((n) =>
+      n.message.includes("Changes requested")
+    );
+    expect(changeNotif?.message).toContain("Please tighten the scope.");
   });
 });

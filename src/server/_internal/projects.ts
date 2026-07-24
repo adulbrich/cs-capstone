@@ -189,6 +189,17 @@ export async function updateProjectAs(
   return { id: existing.id, updated: true };
 }
 
+function assertChangesRequestedHasComment(
+  target: Status,
+  comment?: string
+): void {
+  if (target === "changes_requested" && !comment?.trim()) {
+    throw new Error(
+      "A comment describing the requested changes is required so the proposer knows what to change."
+    );
+  }
+}
+
 export async function performTransitionAs(
   viewer: AuthUser,
   id: string,
@@ -203,6 +214,7 @@ export async function performTransitionAs(
   }
   const role: ActorRole = isStaff(visibility) ? "staff" : "owner";
   assertTransitionAllowed(project.status as Status, target, role);
+  assertChangesRequestedHasComment(target, comment);
 
   await db.transaction(async (tx) => {
     const updates: Record<string, unknown> = {
@@ -229,7 +241,8 @@ export async function performTransitionAs(
       tx,
       { id: project.id, title: project.title, proposerId: project.proposerId },
       target,
-      viewer.id
+      viewer.id,
+      comment
     );
   });
 
@@ -331,6 +344,7 @@ export async function forceTransitionAs(
   if (project.status === target) {
     throw new Error("Project is already in that status.");
   }
+  assertChangesRequestedHasComment(target, comment);
 
   await db.transaction(async (tx) => {
     const updates: Record<string, unknown> = {
@@ -357,7 +371,8 @@ export async function forceTransitionAs(
       tx,
       { id: project.id, title: project.title, proposerId: project.proposerId },
       target,
-      viewer.id
+      viewer.id,
+      comment
     );
   });
 
