@@ -102,7 +102,12 @@ describe("comments + notifications", () => {
     const admin = await makeUser(`a4-${Date.now()}@x.com`, "admin");
     const { id: pid } = await createProjectAs(owner, baseProject());
     await performTransitionAs(owner, pid, "submitted");
-    await performTransitionAs(admin, pid, "changes_requested", "Please revise.");
+    await performTransitionAs(
+      admin,
+      pid,
+      "changes_requested",
+      "Please revise."
+    );
 
     const { id: parentId } = await addCommentAs(admin, {
       projectId: pid,
